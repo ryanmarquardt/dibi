@@ -402,7 +402,16 @@ class DbapiDriver(Driver):
         return self.dbapi_module.connect(*args, **kwargs)
 
     def placeholders(self, values):
-        return (C("?") for key in values)
+        if self.dbapi_module.paramstyle == 'qmark':
+            return (C("?") for key in values)
+        elif self.dbapi_module.paramstyle == 'format':
+            return (C("%s") for key in values)
+        elif self.dbapi_module.paramstyle == 'numeric':
+            return (C(":{}").format(i) for i, key in enumerate(values))
+        elif self.dbapi_module.paramstyle == 'named':
+            return (C(":{}").format(key) for key in values)
+        elif self.dbapi_module.paramstyle == 'pyformat':
+            return (C("%({})s").format(key) for key in values)
 
     def commit(self):
         self.connection.commit()
@@ -484,9 +493,6 @@ class SQLiteDriver(DbapiDriver):
                 *(self.expression(arg) for arg in value.arguments))
         else:
             return self.literal(value)
-
-    def placeholders(self, values):
-        return (C("?") for key in values)
 
     def handle_exception(self, error):
         if isinstance(error, sqlite3.OperationalError):
