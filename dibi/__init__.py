@@ -66,12 +66,10 @@ NoSuchTable: orders
 
 """
 
-from __future__ import print_function
 
 from dibi.collection import Collection, OrderedCollection
 
 import datetime
-import six
 import sqlite3
 
 
@@ -95,8 +93,8 @@ class DataType(object):
 
 class Text(DataType):
     database_type = 'TEXT'
-    serialize = six.text_type
-    deserialize = six.text_type
+    serialize = str
+    deserialize = str
 
 
 class Integer(DataType):
@@ -124,9 +122,9 @@ class DateTime(Text):
         return datetime.datetime.strptime(value, "%Y-%m-%dT%H:%M:%S.%f")
 
 
-class CleanSQL(six.text_type):
+class CleanSQL(str):
     def __new__(cls, original):
-        return six.text_type.__new__(cls, cls.sanitize(original))
+        return str.__new__(cls, cls.sanitize(original))
 
     def __init__(self, original):
         self.original = original
@@ -148,7 +146,7 @@ class CleanSQL(six.text_type):
         values = list(values)
         if any(not isinstance(value, CleanSQL) for value in values):
             raise TypeError("one or more values are not clean")
-        return self.__class__(six.text_type.join(self, values))
+        return self.__class__(str.join(self, values))
 
     def join_words(self, *words):
         return self.join(word for word in words if word)
@@ -158,7 +156,7 @@ class CleanSQL(six.text_type):
             raise TypeError("one or more values are not clean")
         if any(not isinstance(value, CleanSQL) for value in kwargs.values()):
             raise TypeError("one or more values are not clean")
-        return self.__class__(six.text_type.format(self, *args, **kwargs))
+        return self.__class__(str.format(self, *args, **kwargs))
 
     def __repr__(self):
         return 'C({!r})'.format(str(self))
