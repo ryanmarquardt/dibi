@@ -69,7 +69,7 @@ False
 >>> orders.insert(amount=100, quantity=2, date='2000-01-02')
 Traceback (most recent call last):
  ...
-NoSuchTable: orders
+NoSuchTableError: Table 'orders' does not exist
 
 """
 
@@ -82,8 +82,11 @@ import datetime
 import sqlite3
 
 
-class NoSuchTable(Exception):
-    pass
+class NoSuchTableError(NameError):
+    def __init__(self, table_name):
+        super(NoSuchTableError, self).__init__(
+            "Table {!r} does not exist".format(table_name))
+        self.name = table_name
 
 
 class NoColumns(Exception):
@@ -355,7 +358,7 @@ class Table(Selectable):
 
 class Driver(metaclass=ABCMeta):
     @abstractmethod
-    def handle_exception(self, error_class, error):
+    def handle_exception(self, error):
         """
 
         """
@@ -450,7 +453,7 @@ class SQLiteDriver(DbapiDriver):
             message = error.args[0]
             if message.startswith('no such table: '):
                 table = message[15:]
-                raise NoSuchTable(table)
+                raise NoSuchTableError(table)
             elif message.endswith(': syntax error'):
                 raise SyntaxError((message, self.last_statement))
         raise error_class(*error.args)
