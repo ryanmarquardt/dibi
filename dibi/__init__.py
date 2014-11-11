@@ -394,6 +394,12 @@ class Driver(metaclass=ABCMeta):
         return
 
 
+def operator(string):
+    def operation(*args):
+        return C(string.format(*args))
+    return operation
+
+
 class DbapiDriver(Driver):
     def __init__(self, *args, **kwargs):
         with self.catch_exception():
@@ -454,28 +460,7 @@ class DbapiDriver(Driver):
             self.handle_exception(error)
             raise
 
-
-def operator(string):
-    def operation(*args):
-        return C(string.format(*args))
-    return operation
-
-
-class SQLiteDriver(DbapiDriver):
-    dbapi_module = sqlite3
-
-    def __init__(self, path=':memory:'):
-        super(SQLiteDriver, self).__init__(path)
-        self.path = path
-
-    class identifier(CleanSQL):
-        @staticmethod
-        def sanitize(value):
-            return "{0}{1}{0}".format('"', str(value).replace('"', '""'))
-
-    class operators:
-        EQUAL = operator("({}={})")
-        AND = operator("({} AND {})")
+    # Syntax cleansers
 
     def literal(self, value):
         if value is None:
@@ -496,42 +481,15 @@ class SQLiteDriver(DbapiDriver):
         else:
             return self.literal(value)
 
-    def handle_exception(self, error):
-        if isinstance(error, sqlite3.OperationalError):
-            message = error.args[0]
-            if message.startswith('no such table: '):
-                table = message[15:]
-                raise NoSuchTableError(table)
-            elif message.endswith(': syntax error'):
-                raise SyntaxError((message, self.last_statement))
-        if isinstance(error, (sqlite3.OperationalError,
-                              sqlite3.ProgrammingError)):
-            raise Exception((error, self.last_statement))
-
-    # Schema methods
-
-    def map_type(self, database_type, database_size):
-        return dict(
-            INT=C("INT"),
-            REAL=C("REAL"),
-            TEXT=C("TEXT"),
-            BLOB=C("BLOB"),
-            DATETIME=C("TIMESTAMP"),
-        )[database_type]
-
     def column_definition(self, column):
-        try:
-            database_type = self.map_type(column.datatype.database_type,
-                                          column.datatype.database_size)
-        except KeyError:
-            raise ValueError(
-                "datatype {!r} did not produce a valid SQLite type".format(
-                    self.datatype))
         return C(" ").join_words(
             self.identifier(column.name),
-            C(database_type),
+            self.map_type(column.datatype.database_type,
+                          column.datatype.database_size),
             C("PRIMARY KEY") if column.primarykey else None,
         )
+
+    # Schema methods
 
     def create_table(self, table, columns, force_create):
         return self.execute(
@@ -567,7 +525,7 @@ class SQLiteDriver(DbapiDriver):
             C("SELECT"),
             C("DISTINCT") if distinct else None,
             C(", ").join(C("{}.{}").format(
-                self.identifier(column.table),
+                self.identifier(column.table.name),
                 self.identifier(column.name)
             ) for column in columns),
             C("FROM"),
@@ -600,6 +558,53 @@ class SQLiteDriver(DbapiDriver):
             C("WHERE") if criteria else None,
             self.expression(criteria) if criteria else None,
         )
+
+    class operators:
+        EQUAL = operator("({}={})")
+        AND = operator("({} AND {})")
+
+
+class SQLiteDriver(DbapiDriver):
+    dbapi_module = sqlite3
+
+    def __init__(self, path=':memory:'):
+        super(SQLiteDriver, self).__init__(path)
+        self.path = path
+
+    identifier_quote = '"'
+    identifier_quote_escape = '""'
+
+    def identifier(self, value):
+        return C("{0}{1}{0}".format(
+            self.identifier_quote,
+            value.replace(self.identifier_quote,
+                          self.identifier_quote_escape)))
+
+    def handle_exception(self, error):
+        if isinstance(error, sqlite3.OperationalError):
+            message = error.args[0]
+            if message.startswith('no such table: '):
+                table = message[15:]
+                raise NoSuchTableError(table)
+            elif message.endswith(': syntax error'):
+                raise SyntaxError((message, self.last_statement))
+        if isinstance(error, (sqlite3.OperationalError,
+                              sqlite3.ProgrammingError)):
+            raise Exception((error, self.last_statement))
+
+    def map_type(self, database_type, database_size):
+        try:
+            return dict(
+                INT=C("INT"),
+                REAL=C("REAL"),
+                TEXT=C("TEXT"),
+                BLOB=C("BLOB"),
+                DATETIME=C("TIMESTAMP"),
+            )[database_type]
+        except KeyError:
+            raise ValueError(
+                "datatype {!r}({}) did not produce a valid SQLite type".format(
+                    database_type, database_size))
 
 
 if __name__ == '__main__':
