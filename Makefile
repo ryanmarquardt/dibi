@@ -1,11 +1,14 @@
-VERSION=$(shell python setup.py --version)
-FULLNAME=$(shell python setup.py --fullname)
-NAME=$(shell python setup.py --name)
+
+PYTHON=python3
+SETUP=$(PYTHON) setup.py
+
+VERSION=$(shell $(SETUP) --version)
+FULLNAME=$(shell $(SETUP) --fullname)
+NAME=$(shell $(SETUP) --name)
 
 SRCFILES=$(shell find $(NAME) -name '*.py')
 
-TESTPYTHON=PYTHONPATH=$(PWD)/build/lib python
-SETUP=python3 setup.py
+TESTPYTHON=PYTHONPATH=$(PWD)/build/lib $(PYTHON)
 
 .PHONY: test all sdist
 
@@ -13,8 +16,7 @@ all: build
 
 test: build
 	find $(NAME) -name '*.py' -exec pep8 --show-source '{}' \;
-	$(TESTPYTHON)3 dibi/__init__.py test
-	$(TESTPYTHON)2 dibi/__init__.py test
+	$(TESTPYTHON) dibi/__init__.py test
 
 build: $(SRCFILES)
 	@$(SETUP) build
