@@ -106,12 +106,14 @@ class DataType(object):
 
 class Text(DataType):
     database_type = 'TEXT'
+    database_size = 512
     serialize = str
     deserialize = str
 
 
 class Integer(DataType):
     database_type = 'INT'
+    database_size = 64
     serialize = int
 
 
@@ -508,15 +510,26 @@ class SQLiteDriver(DbapiDriver):
 
     # Schema methods
 
+    def map_type(self, database_type, database_size):
+        return dict(
+            INT=C("INT"),
+            REAL=C("REAL"),
+            TEXT=C("TEXT"),
+            BLOB=C("BLOB"),
+            DATETIME=C("TIMESTAMP"),
+        )[database_type]
+
     def column_definition(self, column):
-        if column.datatype.database_type not in {
-                "", "TEXT", "REAL", "INT", "BLOB"}:
+        try:
+            database_type = self.map_type(column.datatype.database_type,
+                                          column.datatype.database_size)
+        except KeyError:
             raise ValueError(
                 "datatype {!r} did not produce a valid SQLite type".format(
                     self.datatype))
         return C(" ").join_words(
             self.identifier(column.name),
-            CleanSQL(column.datatype.database_type),
+            C(database_type),
             C("PRIMARY KEY") if column.primarykey else None,
         )
 
