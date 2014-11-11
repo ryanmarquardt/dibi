@@ -209,7 +209,7 @@ class Selection(DbObject):
         DbObject.__init__(self, db)
         self.columns = columns
         self.cursor = self.db.driver.select(
-            columns, tables, criteria, distinct)
+            tables, criteria, columns, distinct)
 
     def __iter__(self):
         for row in self.cursor:
@@ -252,8 +252,8 @@ class Selectable(DbObject):
             raise ValueError("Can only update one table at a time")
         self.db.driver.update(
             list(self.tables)[0],
-            values,
             self if isinstance(self, Filter) else None,
+            values,
         )
 
     def delete(self):
@@ -354,10 +354,6 @@ class Table(Selectable):
 
 
 class Driver(metaclass=ABCMeta):
-    def __init__(self, *args, **kwargs):
-        self.connection = self.connect(*args, **kwargs)
-        self.transaction_depth = 0
-
     @abstractmethod
     def handle_exception(self, error_class, error):
         """
@@ -389,16 +385,22 @@ class Driver(metaclass=ABCMeta):
         return
 
     @abstractmethod
-    def select(self, columns, tables, criteria, distinct):
+    def select(self, tables, criteria, columns, distinct):
         return
 
     @abstractmethod
-    def update(self, table, values, criteria):
+    def update(self, table, criteria, values):
         return
 
     @abstractmethod
     def delete(self, tables, criteria):
         return
+
+
+class DbapiDriver(Driver):
+    def __init__(self, *args, **kwargs):
+        self.connection = self.connect(*args, **kwargs)
+        self.transaction_depth = 0
 
     def commit(self):
         self.connection.commit()
@@ -432,7 +434,7 @@ class Driver(metaclass=ABCMeta):
                 raise
 
 
-class SQLiteDriver(Driver):
+class SQLiteDriver(DbapiDriver):
     def __init__(self, path=':memory:'):
         super(SQLiteDriver, self).__init__(path)
         self.path = path
@@ -496,7 +498,7 @@ class SQLiteDriver(Driver):
             values=values.values()
         )
 
-    def select(self, columns, tables, criteria, distinct):
+    def select(self, tables, criteria, columns, distinct):
         return self.execute(
             C("SELECT"),
             C("DISTINCT") if distinct else None,
@@ -510,7 +512,7 @@ class SQLiteDriver(Driver):
             Expression(criteria) if criteria else None,
         )
 
-    def update(self, table, values, criteria):
+    def update(self, table, criteria, values):
         pairs = zip(values.keys(), self.placeholders(values))
         self.execute(
             C("UPDATE"),
@@ -585,8 +587,7 @@ if __name__ == '__main__':
 
         class Test(object):
             def __init__(self, *args, **kwargs):
-                self.failures = []
-                self.errors = []
+                self.failed = False
 
             def __call__(self, comment):
                 self.comment = comment
@@ -596,7 +597,7 @@ if __name__ == '__main__':
                 return self
 
             def report_failure(self, tb, comment, condition, *args):
-                self.failures.append(Result(tb, comment, condition, *args))
+                self.failed = True
                 logging.error("{message} in {comment!r}".format(
                     tb=tb,
                     comment=comment,
@@ -604,7 +605,7 @@ if __name__ == '__main__':
                 ))
 
             def report_error(self, tb, comment, exc, obj):
-                self.errors.append(Result(tb, comment, "U"))
+                self.failed = True
                 logging.critical(("Unhandled exception in {comment!r}:\n"
                                   "    {error}").format(
                     tb=tb,
@@ -695,5 +696,5 @@ if __name__ == '__main__':
             autoinc.save()
             test.equal(len(autoinc.columns), 1)
 
-        if test.failures or test.errors:
+        if test.failed:
             exit(1)
