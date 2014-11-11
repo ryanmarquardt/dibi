@@ -356,6 +356,7 @@ class Table(Selectable):
 class Driver(metaclass=ABCMeta):
     def __init__(self, *args, **kwargs):
         self.connection = self.connect(*args, **kwargs)
+        self.transaction_depth = 0
 
     @abstractmethod
     def handle_exception(self, error_class, error):
@@ -399,6 +400,23 @@ class Driver(metaclass=ABCMeta):
     def delete(self, tables, criteria):
         return
 
+    def commit(self):
+        self.connection.commit()
+
+    def rollback(self):
+        self.connection.rollback()
+
+    def __enter__(self):
+        self.transaction_depth += 1
+
+    def __exit__(self, exc, obj, tb):
+        self.transaction_depth -= 1
+        if not self.transaction_depth:
+            if exc is None:
+                self.commit()
+            else:
+                self.rollback()
+
     def execute(self, *words, **kwargs):
         values = list(kwargs.pop('values', ()))
         if kwargs:
@@ -406,12 +424,12 @@ class Driver(metaclass=ABCMeta):
                             "'{}'".format(kwargs.popitem()[0]))
         self.last_statement = statement = \
             C('{};').join_format(C(' '), (word for word in words if word))
-        error = None
-        try:
-            return self.connection.execute(statement, values)
-        except Exception as error:
-            self.handle_exception(error)
-            raise
+        with self:
+            try:
+                return self.connection.execute(statement, values)
+            except Exception as error:
+                self.handle_exception(error)
+                raise
 
 
 class SQLiteDriver(Driver):
