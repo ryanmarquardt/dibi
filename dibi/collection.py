@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
 from collections import OrderedDict, MutableSet, MutableMapping, Mapping, Set
-import abc
+from abc import ABCMeta, abstractmethod
 
 
-class Collectable(metaclass=abc.ABCMeta):
-    @abc.abstractmethod
+class Collectable(metaclass=ABCMeta):
+    @abstractmethod
     def __key__(self):
         return ''
 
