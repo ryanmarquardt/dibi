@@ -353,8 +353,32 @@ class Driver(metaclass=ABCMeta):
         """
         return
 
+    # Schema methods
+
+    @abstractmethod
+    def create_table(self, name, columns, force_create):
+        return
+
+    @abstractmethod
+    def drop_table(self, name, ignore_absence):
+        return
+
+    # Row/object methods
+
     @abstractmethod
     def insert(self, table, values):
+        return
+
+    @abstractmethod
+    def select(self, columns, tables, where, distinct):
+        return
+
+    @abstractmethod
+    def update(self, values, where):
+        return
+
+    @abstractmethod
+    def delete(self, tables, where):
         return
 
     def execute(self, *words, **kwargs):
