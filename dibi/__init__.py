@@ -428,7 +428,7 @@ class DbapiDriver(Driver):
         self.identifier_quote
         try:
             self.identifier_quote_escape
-        except NameError:
+        except AttributeError:
             self.identifier_quote_escape = self.identifier_quote * 2
 
         self.dbapi_module = dbapi_module
@@ -629,7 +629,6 @@ class SQLiteDriver(DbapiDriver):
         self.path = path
 
     identifier_quote = C('"')
-    identifier_quote_escape = C('""')
 
     def handle_exception(self, error):
         if isinstance(error, sqlite3.OperationalError):
