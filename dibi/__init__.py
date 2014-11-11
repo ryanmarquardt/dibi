@@ -417,7 +417,15 @@ def operator(string):
 
 
 class DbapiDriver(Driver):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, dbapi_module, *args, **kwargs):
+        # Fail early if these required attributes aren't present
+        self.identifier_quote
+        try:
+            self.identifier_quote_escape
+        except NameError:
+            self.identifier_quote_escape = self.identifier_quote * 2
+
+        self.dbapi_module = dbapi_module
         with self.catch_exception():
             self.connection = self.connect(*args, **kwargs)
         self.transaction_depth = 0
@@ -476,6 +484,14 @@ class DbapiDriver(Driver):
             self.handle_exception(error)
             raise
 
+    @abstractmethod
+    def map_type(self, database_type, database_size):
+        return
+
+    @abstractmethod
+    def unmap_type(self, database_type):
+        return
+
     # Syntax cleansers
 
     def literal(self, value):
@@ -496,6 +512,12 @@ class DbapiDriver(Driver):
                 *(self.expression(arg) for arg in value.arguments))
         else:
             return self.literal(value)
+
+    def identifier(self, value):
+        return C("{0}{1}{0}").format(
+            self.identifier_quote,
+            C(value.replace(self.identifier_quote,
+                            self.identifier_quote_escape)))
 
     def column_definition(self, column):
         return C(" ").join_words(
@@ -596,10 +618,9 @@ class DbapiDriver(Driver):
 
 
 class SQLiteDriver(DbapiDriver):
-    dbapi_module = sqlite3
-
     def __init__(self, path=':memory:'):
-        super(SQLiteDriver, self).__init__(path)
+        super(SQLiteDriver, self).__init__(
+            sqlite3, path, sqlite3.PARSE_DECLTYPES)
         self.path = path
 
     identifier_quote = '"'
