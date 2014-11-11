@@ -43,7 +43,7 @@ $1.00 ; 2 ; 2000-01-01
 >>> (orders.amount == 100).select(orders.quantity)
 <Selection("orders"."quantity")>
 
->>> print(orders.db.last_statement)
+>>> print(orders.db.driver.last_statement)
 SELECT "orders"."quantity" FROM "orders" WHERE ("orders"."amount"=100);
 
 >>> len(orders.select())
@@ -68,6 +68,8 @@ NoSuchTable: orders
 
 
 from dibi.collection import Collection, OrderedCollection
+
+from abc import ABCMeta, abstractmethod
 
 import datetime
 import sqlite3
@@ -194,19 +196,9 @@ class Expression(CleanSQL):
 
 class Selection(object):
     def __init__(self, db, columns, tables, where, distinct):
+        self.db = db
         self.columns = columns
-        self.cursor = db.execute(
-            C("SELECT"),
-            C("DISTINCT") if distinct else None,
-            C(", ").join(C("{}.{}").format(
-                Identifier(column.table),
-                Identifier(column.name)
-            ) for column in columns),
-            C("FROM"),
-            C(", ").join(Identifier(table.name) for table in tables),
-            C("WHERE") if where else None,
-            Expression(where) if where else None,
-        )
+        self.cursor = self.db.driver.select(columns, tables, where, distinct)
 
     def __iter__(self):
         for row in self.cursor:
@@ -241,13 +233,17 @@ class Selectable(object):
         return Selection(
             self.db, columns, self.tables,
             self if isinstance(self, Filter) else None,
-            distinct)
+            distinct,
+        )
 
     def update(self, **values):
         raise NotImplementedError
 
     def delete(self):
-        self.db.execute(C("DELETE FROM"), Identifier(self.name))
+        self.db.driver.delete(
+            self.tables,
+            self if isinstance(self, Filter) else None,
+        )
 
     def count(self):
         raise NotImplementedError
@@ -291,19 +287,6 @@ class Column(Filter):
     def __repr__(self):
         return str(self)
 
-    @property
-    def definition(self):
-        if self.datatype.database_type not in {
-                "", "TEXT", "REAL", "INT", "BLOB"}:
-            raise ValueError(
-                "datatype {!r} did not produce a valid SQLite type".format(
-                    self.datatype))
-        return C(" ").join_words(
-            Identifier(self.name),
-            CleanSQL(self.datatype.database_type),
-            C("PRIMARY KEY") if self.primarykey else None,
-        )
-
     def __str__(self):
         return "{}.{}".format(Identifier(self.table), Identifier(self.name))
 
@@ -335,55 +318,44 @@ class Table(Selectable):
         self.columns.add(column)
         return column
 
-    def column_definitions(self):
-        return (column.definition for column in self.columns)
-
     def save(self, force_create=False):
         if not self.columns:
             raise NoColumns("Cannot create table {!r} with no columns".format(
                 self.name))
-        self.db.execute(
-            C("CREATE TABLE"),
-            C("IF NOT EXISTS") if force_create else None,
-            Identifier(self.name),
-            C("({})").join_format(C(", "), self.column_definitions()),
-        )
+        self.db.driver.create_table(self, self.columns, force_create)
 
     def drop(self, ignore_absence=True):
-        self.db.execute(
-            C("DROP TABLE"),
-            C("IF EXISTS") if ignore_absence else None,
-            Identifier(self.name)
-        )
+        self.db.driver.drop_table(self, ignore_absence)
         self.db.tables.discard(self)
 
     def insert(self, **values):
-        self.db.execute(
-            C("INSERT INTO"),
-            Identifier(self.name),
-            C("({})").join_format(
-                C(", "), (Identifier(key) for key in values.keys())),
-            C("VALUES"),
-            C("({})").join_format(C(", "), (C("?") for x in values)),
-            values=values.values()
-        )
+        self.db.driver.insert(self, values)
 
     def __getattr__(self, key):
         return self.columns[key]
 
 
-class DB(object):
-    def __init__(self, path=':memory:'):
-        self.path = path
-        self.tables = Collection()
-        self.connection = sqlite3.connect(path)
+class Driver(metaclass=ABCMeta):
+    def __init__(self, *args, **kwargs):
+        self.connection = self.connect(*args, **kwargs)
 
-    def __hash__(self):
-        return hash(self.path)
+    @abstractmethod
+    def handle_exception(self, error_class, error):
+        """
 
-    def add_table(self, name, primarykey=None):
-        self.tables.add(Table(self, name, primarykey=primarykey))
-        return self.tables[name]
+        """
+        return
+
+    @abstractmethod
+    def connect(self, address, *parameters, **kw_parameters):
+        """
+
+        """
+        return
+
+    @abstractmethod
+    def insert(self, table, values):
+        return
 
     def execute(self, *words, **kwargs):
         values = list(kwargs.pop('values', ()))
@@ -395,14 +367,24 @@ class DB(object):
         error = None
         try:
             return self.connection.execute(statement, values)
-        except (sqlite3.OperationalError, sqlite3.ProgrammingError) as error:
-            dibi_error = self.handle_exception(error.__class__, error)
-            if dibi_error is None:
-                raise
-        raise dibi_error
+        except Exception as error:
+            self.handle_exception(error)
+            raise
 
-    def handle_exception(self, error_class, error):
-        if error_class is sqlite3.OperationalError:
+
+class SQLiteDriver(Driver):
+    def __init__(self, path=':memory:'):
+        super(SQLiteDriver, self).__init__(path)
+        self.path = path
+
+    def connect(self, path):
+        return sqlite3.connect(path)
+
+    def placeholders(self, values):
+        return (C("?") for key in values)
+
+    def handle_exception(self, error):
+        if isinstance(error, sqlite3.OperationalError):
             message = error.args[0]
             if message.startswith('no such table: '):
                 table = message[15:]
@@ -411,6 +393,84 @@ class DB(object):
                 raise SyntaxError((message, self.last_statement))
         raise error_class(*error.args)
 
+    # Schema methods
+
+    def column_definition(self, column):
+        if column.datatype.database_type not in {
+                "", "TEXT", "REAL", "INT", "BLOB"}:
+            raise ValueError(
+                "datatype {!r} did not produce a valid SQLite type".format(
+                    self.datatype))
+        return C(" ").join_words(
+            Identifier(column.name),
+            CleanSQL(column.datatype.database_type),
+            C("PRIMARY KEY") if column.primarykey else None,
+        )
+
+    def create_table(self, table, columns, force_create):
+        return self.execute(
+            C("CREATE TABLE"),
+            C("IF NOT EXISTS") if force_create else None,
+            Identifier(table.name),
+            C("({})").join_format(C(", "), (
+                self.column_definition(column) for column in columns)),
+        )
+
+    def drop_table(self, table, ignore_absence):
+        return self.execute(
+            C("DROP TABLE"),
+            C("IF EXISTS") if ignore_absence else None,
+            Identifier(table.name)
+        )
+
+    # Row methods
+
+    def insert(self, table, values):
+        return self.execute(
+            C("INSERT INTO"),
+            Identifier(table.name),
+            C("({})").join_format(
+                C(", "), (Identifier(key) for key in values.keys())),
+            C("VALUES"),
+            C("({})").join_format(C(", "), self.placeholders(values)),
+            values=values.values()
+        )
+
+    def select(self, columns, tables, where, distinct):
+        return self.execute(
+            C("SELECT"),
+            C("DISTINCT") if distinct else None,
+            C(", ").join(C("{}.{}").format(
+                Identifier(column.table),
+                Identifier(column.name)
+            ) for column in columns),
+            C("FROM"),
+            C(", ").join(Identifier(table.name) for table in tables),
+            C("WHERE") if where else None,
+            Expression(where) if where else None,
+        )
+
+    def delete(self, tables, where):
+        self.execute(
+            C("DELETE FROM"),
+            C(", ").join(Identifier(table.name) for table in tables),
+            C("WHERE") if where else None,
+            Expression(where) if where else None,
+        )
+
+
+class DB(object):
+    def __init__(self, path=':memory:'):
+        self.driver = SQLiteDriver(path)
+        self.path = path
+        self.tables = Collection()
+
+    def __hash__(self):
+        return hash(self.path)
+
+    def add_table(self, name, primarykey=None):
+        self.tables.add(Table(self, name, primarykey=primarykey))
+        return self.tables[name]
 
 if __name__ == '__main__':
     import argparse
