@@ -89,7 +89,7 @@ class NoSuchTableError(NameError):
         self.name = table_name
 
 
-class NoColumns(Exception):
+class NoColumnsError(ValueError):
     pass
 
 
@@ -341,8 +341,8 @@ class Table(Selectable):
 
     def save(self, force_create=False):
         if not self.columns:
-            raise NoColumns("Cannot create table {!r} with no columns".format(
-                self.name))
+            raise NoColumnsError(
+                "Cannot create table {!r} with no columns".format(self.name))
         self.db.driver.create_table(self, self.columns, force_create)
 
     def drop(self, ignore_absence=True):
@@ -686,7 +686,7 @@ if __name__ == '__main__':
             orders.save()
 
         with test("Create a table with no columns"):
-            with test.raises(NoColumns):
+            with test.raises(NoColumnsError):
                 test.db.add_table('empty').save()
 
         with test("Table names are quoted to prevent SQL injection"):
