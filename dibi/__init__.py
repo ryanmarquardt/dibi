@@ -351,6 +351,12 @@ class CleanSQL(str):
             raise TypeError("one or more values are not clean")
         return self.__class__(str.format(self, *args, **kwargs))
 
+    def replace(self, find, new):
+        return self.__class__(str.replace(self, find, new))
+
+    def __mul__(self, other):
+        return self.__class__(str.__mul__(self, other))
+
     def __repr__(self):
         return 'C({!r})'.format(str(self))
 
@@ -514,10 +520,9 @@ class DbapiDriver(Driver):
             return self.literal(value)
 
     def identifier(self, value):
-        return C("{0}{1}{0}").format(
-            self.identifier_quote,
-            C(value.replace(self.identifier_quote,
-                            self.identifier_quote_escape)))
+        name = C(value).replace(self.identifier_quote,
+                                self.identifier_quote_escape)
+        return C("{0}{1}{0}").format(self.identifier_quote, name)
 
     def column_definition(self, column):
         return C(" ").join_words(
@@ -623,14 +628,8 @@ class SQLiteDriver(DbapiDriver):
             sqlite3, path, sqlite3.PARSE_DECLTYPES)
         self.path = path
 
-    identifier_quote = '"'
-    identifier_quote_escape = '""'
-
-    def identifier(self, value):
-        return C("{0}{1}{0}".format(
-            self.identifier_quote,
-            value.replace(self.identifier_quote,
-                          self.identifier_quote_escape)))
+    identifier_quote = C('"')
+    identifier_quote_escape = C('""')
 
     def handle_exception(self, error):
         if isinstance(error, sqlite3.OperationalError):
