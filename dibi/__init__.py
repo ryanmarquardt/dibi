@@ -49,6 +49,13 @@ SELECT "orders"."quantity" FROM "orders" WHERE ("orders"."amount"=100);
 >>> len(orders.select())
 2
 
+>>> orders.update(quantity=5)
+
+>>> for amount, quantity, date in orders.select():
+...   print("${:.02f} ; {} ; {}".format(int(amount)/100., quantity, date))
+$1.00 ; 5 ; 2000-01-01
+$4.50 ; 5 ; 2000-04-10
+
 >>> orders.delete()
 
 >>> len(orders.select())
@@ -241,7 +248,10 @@ class Selectable(DbObject):
         )
 
     def update(self, **values):
+        if len(self.tables) != 1:
+            raise ValueError("Can only update one table at a time")
         self.db.driver.update(
+            list(self.tables)[0],
             values,
             self if isinstance(self, Filter) else None,
         )
@@ -382,7 +392,7 @@ class Driver(metaclass=ABCMeta):
         return
 
     @abstractmethod
-    def update(self, values, criteria):
+    def update(self, table, values, criteria):
         return
 
     @abstractmethod
@@ -482,8 +492,22 @@ class SQLiteDriver(Driver):
             Expression(criteria) if criteria else None,
         )
 
-    def update(self, values, criteria):
-        raise NotImplementedError
+    def update(self, table, values, criteria):
+        pairs = zip(values.keys(), self.placeholders(values))
+        self.execute(
+            C("UPDATE"),
+            Identifier(table.name),
+            C("SET"),
+            C(", ").join(
+                C("{}={}").format(
+                    Identifier(name),
+                    placeholder,
+                ) for name, placeholder in pairs
+            ),
+            C("WHERE") if criteria else None,
+            Expression(criteria) if criteria else None,
+            values=values.values(),
+        )
 
     def delete(self, tables, criteria):
         self.execute(
