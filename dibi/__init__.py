@@ -504,8 +504,7 @@ class DB(object):
         return hash(self.path)
 
     def add_table(self, name, primarykey=None):
-        self.tables.add(Table(self, name, primarykey=primarykey))
-        return self.tables[name]
+        return self.tables.add(Table(self, name, primarykey=primarykey))
 
 if __name__ == '__main__':
     import argparse
