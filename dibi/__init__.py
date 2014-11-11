@@ -237,7 +237,10 @@ class Selectable(object):
         )
 
     def update(self, **values):
-        raise NotImplementedError
+        self.db.driver.update(
+            values,
+            self if isinstance(self, Filter) else None,
+        )
 
     def delete(self):
         self.db.driver.delete(
@@ -473,6 +476,9 @@ class SQLiteDriver(Driver):
             C("WHERE") if where else None,
             Expression(where) if where else None,
         )
+
+    def update(self, values, where):
+        raise NotImplementedError
 
     def delete(self, tables, where):
         self.execute(
