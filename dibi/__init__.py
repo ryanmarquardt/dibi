@@ -137,6 +137,14 @@ class DateTime(Text):
         return datetime.datetime.strptime(value, "%Y-%m-%dT%H:%M:%S.%f")
 
 
+class Float(DataType):
+    pass
+
+
+class Blob(DataType):
+    pass
+
+
 class DbObject(object):
     def __init__(self, db):
         self.db = db
@@ -375,6 +383,14 @@ class Driver(metaclass=ABCMeta):
     def drop_table(self, name, ignore_absence):
         return
 
+    @abstractmethod
+    def list_tables(self):
+        return
+
+    @abstractmethod
+    def list_columns(self, table):
+        return
+
     # Row/object methods
 
     @abstractmethod
@@ -507,6 +523,21 @@ class DbapiDriver(Driver):
             self.identifier(table.name)
         )
 
+    def list_tables(self):
+        return (name for (name,) in self.execute(
+            C("SELECT name FROM sqlite_master WHERE type='table'")))
+
+    def list_columns(self, table):
+        cursor = self.execute(C("PRAGMA table_info({})").format(
+            self.identifier(table.name)))
+        for _, name, v_type, notnull, default, _ in cursor:
+            yield Column(
+                table.db, table, name,
+                self.unmap_type,
+                notnull=bool(notnull),
+                default=default,
+            )
+
     # Row methods
 
     def insert(self, table, values):
@@ -605,6 +636,15 @@ class SQLiteDriver(DbapiDriver):
             raise ValueError(
                 "datatype {!r}({}) did not produce a valid SQLite type".format(
                     database_type, database_size))
+
+    def unmap_type(self, database_type):
+        return dict(
+            TEXT=Text,
+            INTEGER=Integer,
+            REAL=Float,
+            BLOB=Blob,
+            TIMESTAMP=DateTime,
+        )
 
 
 if __name__ == '__main__':
