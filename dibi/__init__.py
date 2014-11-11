@@ -195,10 +195,11 @@ class Expression(CleanSQL):
 
 
 class Selection(object):
-    def __init__(self, db, columns, tables, where, distinct):
+    def __init__(self, db, columns, tables, criteria, distinct):
         self.db = db
         self.columns = columns
-        self.cursor = self.db.driver.select(columns, tables, where, distinct)
+        self.cursor = self.db.driver.select(
+            columns, tables, criteria, distinct)
 
     def __iter__(self):
         for row in self.cursor:
@@ -373,15 +374,15 @@ class Driver(metaclass=ABCMeta):
         return
 
     @abstractmethod
-    def select(self, columns, tables, where, distinct):
+    def select(self, columns, tables, criteria, distinct):
         return
 
     @abstractmethod
-    def update(self, values, where):
+    def update(self, values, criteria):
         return
 
     @abstractmethod
-    def delete(self, tables, where):
+    def delete(self, tables, criteria):
         return
 
     def execute(self, *words, **kwargs):
@@ -463,7 +464,7 @@ class SQLiteDriver(Driver):
             values=values.values()
         )
 
-    def select(self, columns, tables, where, distinct):
+    def select(self, columns, tables, criteria, distinct):
         return self.execute(
             C("SELECT"),
             C("DISTINCT") if distinct else None,
@@ -473,19 +474,19 @@ class SQLiteDriver(Driver):
             ) for column in columns),
             C("FROM"),
             C(", ").join(Identifier(table.name) for table in tables),
-            C("WHERE") if where else None,
-            Expression(where) if where else None,
+            C("WHERE") if criteria else None,
+            Expression(criteria) if criteria else None,
         )
 
-    def update(self, values, where):
+    def update(self, values, criteria):
         raise NotImplementedError
 
-    def delete(self, tables, where):
+    def delete(self, tables, criteria):
         self.execute(
             C("DELETE FROM"),
             C(", ").join(Identifier(table.name) for table in tables),
-            C("WHERE") if where else None,
-            Expression(where) if where else None,
+            C("WHERE") if criteria else None,
+            Expression(criteria) if criteria else None,
         )
 
 
