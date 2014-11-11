@@ -302,16 +302,15 @@ class Column(Filter):
 
 class Table(Selectable):
     def __init__(self, db, name, primarykey=None):
-        DbObject.__init__(self, db)
         self.name = name
-        self.columns = OrderedCollection()
         Selectable.__init__(self, db, {self})
+        self.columns = OrderedCollection()
         if primarykey:
             self.primarykey = self.add_column(
                 primarykey, Integer, primarykey=True)
 
     def __hash__(self):
-        return hash((self.db, self.name))
+        return hash(self.name)
 
     def __key__(self):
         return self.name
