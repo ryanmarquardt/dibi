@@ -77,6 +77,7 @@ NoSuchTableError: Table 'orders' does not exist
 from dibi.collection import Collection, OrderedCollection
 
 from abc import ABCMeta, abstractmethod
+from contextlib import contextmanager
 
 import datetime
 import sqlite3
@@ -393,8 +394,15 @@ class Driver(metaclass=ABCMeta):
 
 class DbapiDriver(Driver):
     def __init__(self, *args, **kwargs):
-        self.connection = self.connect(*args, **kwargs)
+        with self.catch_exception():
+            self.connection = self.connect(*args, **kwargs)
         self.transaction_depth = 0
+
+    def connect(self, *args, **kwargs):
+        return self.dbapi_module.connect(*args, **kwargs)
+
+    def placeholders(self, values):
+        return (C("?") for key in values)
 
     def commit(self):
         self.connection.commit()
@@ -402,16 +410,20 @@ class DbapiDriver(Driver):
     def rollback(self):
         self.connection.rollback()
 
-    def __enter__(self):
+    @contextmanager
+    def transaction(self):
         self.transaction_depth += 1
-
-    def __exit__(self, exc, obj, tb):
-        self.transaction_depth -= 1
-        if not self.transaction_depth:
-            if exc is None:
-                self.commit()
-            else:
-                self.rollback()
+        error = None
+        try:
+            with self.catch_exception():
+                yield self
+        finally:
+            self.transaction_depth -= 1
+            if not self.transaction_depth:
+                if error is None:
+                    self.commit()
+                else:
+                    self.rollback()
 
     def execute(self, *words, **kwargs):
         values = list(kwargs.pop('values', ()))
@@ -420,12 +432,16 @@ class DbapiDriver(Driver):
                             "'{}'".format(kwargs.popitem()[0]))
         self.last_statement = statement = \
             str(C('{};').join_format(C(' '), (word for word in words if word)))
-        with self:
-            try:
-                return self.connection.execute(statement, values)
-            except Exception as error:
-                self.handle_exception(error)
-                raise
+        with self.transaction():
+            return self.connection.execute(statement, values)
+
+    @contextmanager
+    def catch_exception(self):
+        try:
+            yield
+        except Exception as error:
+            self.handle_exception(error)
+            raise
 
 
 def operator(string):
@@ -435,12 +451,11 @@ def operator(string):
 
 
 class SQLiteDriver(DbapiDriver):
+    dbapi_module = sqlite3
+
     def __init__(self, path=':memory:'):
         super(SQLiteDriver, self).__init__(path)
         self.path = path
-
-    def connect(self, path):
-        return sqlite3.connect(path)
 
     class identifier(CleanSQL):
         @staticmethod
