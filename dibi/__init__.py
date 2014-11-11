@@ -390,15 +390,13 @@ class DB(object):
         if kwargs:
             raise TypeError("DB.execute() got an unexpected keyword argument "
                             "'{}'".format(kwargs.popitem()[0]))
-        if any(word and not isinstance(word, CleanSQL) for word in words):
-            raise TypeError("Received an unclean token")
-        statement = ' '.join(str(word) for word in words if word) + ';'
-        self.last_statement = statement
+        self.last_statement = statement = \
+            C('{};').join_format(C(' '), (word for word in words if word))
         error = None
         try:
             return self.connection.execute(statement, values)
-        except (sqlite3.OperationalError) as error:
-            dibi_error = self.handle_exception(sqlite3.OperationalError, error)
+        except (sqlite3.OperationalError, sqlite3.ProgrammingError) as error:
+            dibi_error = self.handle_exception(error.__class__, error)
             if error is None:
                 raise
         raise dibi_error
