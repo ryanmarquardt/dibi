@@ -397,7 +397,7 @@ class DB(object):
             return self.connection.execute(statement, values)
         except (sqlite3.OperationalError, sqlite3.ProgrammingError) as error:
             dibi_error = self.handle_exception(error.__class__, error)
-            if error is None:
+            if dibi_error is None:
                 raise
         raise dibi_error
 
