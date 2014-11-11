@@ -7,13 +7,13 @@
 >>> orders = mydb.add_table('orders')
 
 >>> orders.add_column('amount', Integer)
-"orders"."amount"
+'orders'.'amount'
 
 >>> orders.add_column('quantity', Text)
-"orders"."quantity"
+'orders'.'quantity'
 
 >>> orders.add_column('date', Date)
-"orders"."date"
+'orders'.'date'
 
 >>> orders in mydb.tables
 True
@@ -26,7 +26,7 @@ True
 >>> allrows = orders.select()
 
 >>> allrows
-<Selection("orders"."amount", "orders"."quantity", "orders"."date")>
+<Selection('orders'.'amount', 'orders'.'quantity', 'orders'.'date')>
 
 >>> for amount, quantity, date in allrows:
 ...   print("${:.02f} ; {} ; {}".format(int(amount)/100., quantity, date))
@@ -34,14 +34,14 @@ $1.00 ; 2 ; 2000-01-01
 $4.50 ; 11 ; 2000-04-10
 
 >>> (orders.columns['amount'] == 100)
-Filter('EQUAL', "orders"."amount", 100)
+Filter('EQUAL', 'orders'.'amount', 100)
 
 >>> for amount, quantity, date in (orders.columns['amount'] == 100).select():
 ...   print("${:.02f} ; {} ; {}".format(int(amount)/100., quantity, date))
 $1.00 ; 2 ; 2000-01-01
 
 >>> (orders.amount == 100).select(orders.quantity)
-<Selection("orders"."quantity")>
+<Selection('orders'.'quantity')>
 
 >>> print(orders.db.driver.last_statement)
 SELECT "orders"."quantity" FROM "orders" WHERE ("orders"."amount"=100);
@@ -132,74 +132,6 @@ class DateTime(Text):
     @staticmethod
     def deserialize(value):
         return datetime.datetime.strptime(value, "%Y-%m-%dT%H:%M:%S.%f")
-
-
-class CleanSQL(str):
-    def __new__(cls, original):
-        return str.__new__(cls, cls.sanitize(original))
-
-    def __init__(self, original):
-        self.original = original
-
-    @staticmethod
-    def sanitize(value):
-        return value
-
-    def join_format(self, joiner, values):
-        if not isinstance(joiner, CleanSQL):
-            raise TypeError("Joiner is not clean")
-        values = list(values)
-        if any(not isinstance(value, CleanSQL) for value in values):
-            raise TypeError("One or more values are not clean")
-        return self.__class__(
-            str.format(self, joiner.join(values)))
-
-    def join(self, values):
-        values = list(values)
-        if any(not isinstance(value, CleanSQL) for value in values):
-            raise TypeError("one or more values are not clean")
-        return self.__class__(str.join(self, values))
-
-    def join_words(self, *words):
-        return self.join(word for word in words if word)
-
-    def format(self, *args, **kwargs):
-        if any(not isinstance(value, CleanSQL) for value in args):
-            raise TypeError("one or more values are not clean")
-        if any(not isinstance(value, CleanSQL) for value in kwargs.values()):
-            raise TypeError("one or more values are not clean")
-        return self.__class__(str.format(self, *args, **kwargs))
-
-    def __repr__(self):
-        return 'C({!r})'.format(str(self))
-
-
-C = CleanSQL
-
-
-class Identifier(CleanSQL):
-    @staticmethod
-    def sanitize(value):
-        return "{0}{1}{0}".format('"', str(value).replace('"', '""'))
-
-
-def op(string):
-    def operation(*args):
-        return string.format(*args)
-    return operation
-
-
-class Expression(CleanSQL):
-    @classmethod
-    def sanitize(cls, value):
-        if isinstance(value, Filter):
-            return cls.operator[value.operator](
-                *(arg for arg in value.arguments))
-
-    operator = dict(
-        EQUAL=op("({}={})"),
-        AND=op("({} AND {})"),
-    )
 
 
 class DbObject(object):
@@ -310,7 +242,7 @@ class Column(Filter):
         return str(self)
 
     def __str__(self):
-        return "{}.{}".format(Identifier(self.table), Identifier(self.name))
+        return "{!r}.{!r}".format(self.table.name, self.name)
 
 
 class Table(Selectable):
@@ -354,6 +286,65 @@ class Table(Selectable):
 
     def __getattr__(self, key):
         return self.columns[key]
+
+
+class DB(object):
+    def __init__(self, path=':memory:'):
+        self.driver = SQLiteDriver(path)
+        self.path = path
+        self.tables = Collection()
+
+    def __hash__(self):
+        return hash(self.path)
+
+    def add_table(self, name, primarykey=None):
+        return self.tables.add(Table(self, name, primarykey=primarykey))
+
+
+# TODO: Move the following code into package dibi.drivers
+
+
+class CleanSQL(str):
+    def __new__(cls, original):
+        return str.__new__(cls, cls.sanitize(original))
+
+    def __init__(self, original):
+        self.original = original
+
+    @staticmethod
+    def sanitize(value):
+        return value
+
+    def join_format(self, joiner, values):
+        if not isinstance(joiner, CleanSQL):
+            raise TypeError("Joiner is not clean")
+        values = list(values)
+        if any(not isinstance(value, CleanSQL) for value in values):
+            raise TypeError("One or more values are not clean")
+        return self.__class__(
+            str.format(self, joiner.join(values)))
+
+    def join(self, values):
+        values = list(values)
+        if any(not isinstance(value, CleanSQL) for value in values):
+            raise TypeError("one or more values are not clean")
+        return self.__class__(str.join(self, values))
+
+    def join_words(self, *words):
+        return self.join(word for word in words if word)
+
+    def format(self, *args, **kwargs):
+        if any(not isinstance(value, CleanSQL) for value in args):
+            raise TypeError("one or more values are not clean")
+        if any(not isinstance(value, CleanSQL) for value in kwargs.values()):
+            raise TypeError("one or more values are not clean")
+        return self.__class__(str.format(self, *args, **kwargs))
+
+    def __repr__(self):
+        return 'C({!r})'.format(str(self))
+
+
+C = CleanSQL
 
 
 class Driver(metaclass=ABCMeta):
@@ -428,13 +419,19 @@ class DbapiDriver(Driver):
             raise TypeError("DB.execute() got an unexpected keyword argument "
                             "'{}'".format(kwargs.popitem()[0]))
         self.last_statement = statement = \
-            C('{};').join_format(C(' '), (word for word in words if word))
+            str(C('{};').join_format(C(' '), (word for word in words if word)))
         with self:
             try:
                 return self.connection.execute(statement, values)
             except Exception as error:
                 self.handle_exception(error)
                 raise
+
+
+def operator(string):
+    def operation(*args):
+        return C(string.format(*args))
+    return operation
 
 
 class SQLiteDriver(DbapiDriver):
@@ -444,6 +441,34 @@ class SQLiteDriver(DbapiDriver):
 
     def connect(self, path):
         return sqlite3.connect(path)
+
+    class identifier(CleanSQL):
+        @staticmethod
+        def sanitize(value):
+            return "{0}{1}{0}".format('"', str(value).replace('"', '""'))
+
+    class operators:
+        EQUAL = operator("({}={})")
+        AND = operator("({} AND {})")
+
+    def literal(self, value):
+        if value is None:
+            return C('NULL')
+        elif isinstance(value, str):
+            return C("'{}'").format(C(value.replace("'", "''")))
+        elif isinstance(value, int):
+            return C(value)
+        raise TypeError("Can't convert {!r} to literal".format(value))
+
+    def expression(self, value):
+        if isinstance(value, Column):
+            return C("{}.{}").format(self.identifier(value.table.name),
+                                     self.identifier(value.name))
+        elif isinstance(value, Filter):
+            return self.operators.__dict__[value.operator](
+                *(self.expression(arg) for arg in value.arguments))
+        else:
+            return self.literal(value)
 
     def placeholders(self, values):
         return (C("?") for key in values)
@@ -456,7 +481,9 @@ class SQLiteDriver(DbapiDriver):
                 raise NoSuchTableError(table)
             elif message.endswith(': syntax error'):
                 raise SyntaxError((message, self.last_statement))
-        raise error_class(*error.args)
+        if isinstance(error, (sqlite3.OperationalError,
+                              sqlite3.ProgrammingError)):
+            raise Exception((error, self.last_statement))
 
     # Schema methods
 
@@ -467,7 +494,7 @@ class SQLiteDriver(DbapiDriver):
                 "datatype {!r} did not produce a valid SQLite type".format(
                     self.datatype))
         return C(" ").join_words(
-            Identifier(column.name),
+            self.identifier(column.name),
             CleanSQL(column.datatype.database_type),
             C("PRIMARY KEY") if column.primarykey else None,
         )
@@ -476,7 +503,7 @@ class SQLiteDriver(DbapiDriver):
         return self.execute(
             C("CREATE TABLE"),
             C("IF NOT EXISTS") if force_create else None,
-            Identifier(table.name),
+            self.identifier(table.name),
             C("({})").join_format(C(", "), (
                 self.column_definition(column) for column in columns)),
         )
@@ -485,7 +512,7 @@ class SQLiteDriver(DbapiDriver):
         return self.execute(
             C("DROP TABLE"),
             C("IF EXISTS") if ignore_absence else None,
-            Identifier(table.name)
+            self.identifier(table.name)
         )
 
     # Row methods
@@ -493,9 +520,9 @@ class SQLiteDriver(DbapiDriver):
     def insert(self, table, values):
         return self.execute(
             C("INSERT INTO"),
-            Identifier(table.name),
+            self.identifier(table.name),
             C("({})").join_format(
-                C(", "), (Identifier(key) for key in values.keys())),
+                C(", "), (self.identifier(key) for key in values.keys())),
             C("VALUES"),
             C("({})").join_format(C(", "), self.placeholders(values)),
             values=values.values()
@@ -506,52 +533,40 @@ class SQLiteDriver(DbapiDriver):
             C("SELECT"),
             C("DISTINCT") if distinct else None,
             C(", ").join(C("{}.{}").format(
-                Identifier(column.table),
-                Identifier(column.name)
+                self.identifier(column.table),
+                self.identifier(column.name)
             ) for column in columns),
             C("FROM"),
-            C(", ").join(Identifier(table.name) for table in tables),
+            C(", ").join(self.identifier(table.name) for table in tables),
             C("WHERE") if criteria else None,
-            Expression(criteria) if criteria else None,
+            self.expression(criteria) if criteria else None,
         )
 
     def update(self, table, criteria, values):
         pairs = zip(values.keys(), self.placeholders(values))
         self.execute(
             C("UPDATE"),
-            Identifier(table.name),
+            self.identifier(table.name),
             C("SET"),
             C(", ").join(
                 C("{}={}").format(
-                    Identifier(name),
+                    self.identifier(name),
                     placeholder,
                 ) for name, placeholder in pairs
             ),
             C("WHERE") if criteria else None,
-            Expression(criteria) if criteria else None,
+            self.expression(criteria) if criteria else None,
             values=values.values(),
         )
 
     def delete(self, tables, criteria):
         self.execute(
             C("DELETE FROM"),
-            C(", ").join(Identifier(table.name) for table in tables),
+            C(", ").join(self.identifier(table.name) for table in tables),
             C("WHERE") if criteria else None,
-            Expression(criteria) if criteria else None,
+            self.expression(criteria) if criteria else None,
         )
 
-
-class DB(object):
-    def __init__(self, path=':memory:'):
-        self.driver = SQLiteDriver(path)
-        self.path = path
-        self.tables = Collection()
-
-    def __hash__(self):
-        return hash(self.path)
-
-    def add_table(self, name, primarykey=None):
-        return self.tables.add(Table(self, name, primarykey=primarykey))
 
 if __name__ == '__main__':
     import argparse
