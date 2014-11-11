@@ -1,16 +1,20 @@
 #!/usr/bin/env python
 
-from __future__ import print_function
-
-from collections import OrderedDict, MutableSet, MutableMapping
+from collections import OrderedDict, MutableSet, MutableMapping, Mapping, Set
 import abc
-import six
 
 
-class Collectable(six.with_metaclass(abc.ABCMeta)):
+class Collectable(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def __key__(self):
         return ''
+
+    def __hash__(self):
+        return hash(self.__key__())
+
+    def __eq__(self, other):
+        if isinstance(other, Collectable):
+            return self.__key__() == other.__key__()
 
 
 class KeyValue(Collectable):
@@ -18,6 +22,9 @@ class KeyValue(Collectable):
 
     >>> KeyValue('a', 1).__key__()
     'a'
+
+    >>> KeyValue('a', 1) == KeyValue('a', 3)
+    True
 
     """
 
@@ -47,6 +54,15 @@ class Collection(MutableMapping, MutableSet):
 
     >>> collection['a']
     KeyValue('a', 1)
+
+
+    >>> list(collection.items())
+    [('a', KeyValue('a', 1))]
+
+    >>> collection.get('a')
+    KeyValue('a', 1)
+
+    >>> collection.get('b')
 
     """
 
@@ -91,8 +107,45 @@ class Collection(MutableMapping, MutableSet):
         """
         return self.__items[key]
 
+    def keys(self):
+        """Return keys of all members
+
+        >>> list(Collection(KeyValue('a', 1)).keys())
+        ['a']
+
+        """
+        return self.__items.keys()
+
+    def values(self):
+        """Returns an iterator over collection members. Alias for
+        iter(Collection).
+
+        >>> list(Collection(KeyValue('a', 1)).values())
+        [KeyValue('a', 1)]
+
+        """
+        return iter(self)
+
+    def items(self):
+        """Returns an iterator over collection keys and corresponding members.
+
+        >>> list(Collection(KeyValue('a', 1)).items())
+        [('a', KeyValue('a', 1))]
+        """
+        return self.__items.items()
+
     def __iter__(self):
-        return six.itervalues(self.__items)
+        """Iterate over collection members
+
+        >>> c = OrderedCollection(KeyValue('a', 1), KeyValue('b', 2))
+
+        >>> for item in c:
+        ...   print(item)
+        KeyValue('a', 1)
+        KeyValue('b', 2)
+
+        """
+        return (value for value in self.__items.values())
 
     def __len__(self):
         """Returns the number of items in the collection
@@ -151,7 +204,7 @@ class Collection(MutableMapping, MutableSet):
             return self.__items[key]
 
     def discard(self, item):
-        """Remove an item.
+        """Remove an item if it is present.
 
         Equivalent to Collection.__delitem__(item.__key__())
 
@@ -164,6 +217,25 @@ class Collection(MutableMapping, MutableSet):
         >>> len(c)
         0
 
+        >>> c.discard(KeyValue('b', 2))
+
+        """
+        self.__items.pop(item.__key__(), None)
+
+    def remove(self, item):
+        """Remove an item, raising KeyError if it is not present.
+
+        >>> c = Collection(KeyValue('a', 1))
+
+        >>> c.remove(KeyValue('a', 1))
+
+        >>> len(c)
+        0
+
+        >>> c.remove(KeyValue('c', 3))
+        Traceback (most recent call last):
+         ...
+        KeyError: 'c'
         """
         del self.__items[item.__key__()]
 
@@ -195,6 +267,27 @@ class Collection(MutableMapping, MutableSet):
         except AttributeError:
             return False
         return key in self.__items
+
+    def __eq__(self, other):
+        """
+
+        >>> c = Collection(KeyValue('a', 1))
+
+        >>> c == Collection(KeyValue('a', 1))
+        True
+
+        >>> c == {KeyValue('a', 1)}
+        True
+
+        """
+        if isinstance(other, Collection):
+            return other.__items == self.__items
+        elif isinstance(other, Mapping):
+            return other == self.__items
+        elif isinstance(other, Set):
+            return set(self.__items.values()) == other
+        else:
+            return NotImplemented
 
 
 class OrderedCollection(Collection):
