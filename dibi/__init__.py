@@ -183,10 +183,8 @@ class Expression(CleanSQL):
     @classmethod
     def sanitize(cls, value):
         if isinstance(value, Filter):
-            operator = value[0]
-            arguments = value[1:]
-            return cls.operator[operator](
-                *(arg for arg in arguments))
+            return cls.operator[value.operator](
+                *(arg for arg in value.arguments))
 
     operator = dict(
         EQUAL=op("({}={})"),
@@ -194,9 +192,14 @@ class Expression(CleanSQL):
     )
 
 
-class Selection(object):
-    def __init__(self, db, columns, tables, criteria, distinct):
+class DbObject(object):
+    def __init__(self, db):
         self.db = db
+
+
+class Selection(DbObject):
+    def __init__(self, db, columns, tables, criteria, distinct):
+        DbObject.__init__(self, db)
         self.columns = columns
         self.cursor = self.db.driver.select(
             columns, tables, criteria, distinct)
@@ -213,9 +216,9 @@ class Selection(object):
             repr(column) for column in self.columns))
 
 
-class Selectable(object):
+class Selectable(DbObject):
     def __init__(self, db, tables):
-        self.db = db
+        DbObject.__init__(self, db)
         if not isinstance(tables, set):
             raise TypeError(("Expected tables as set, "
                              "got {!r}").format(type(tables)))
@@ -253,16 +256,18 @@ class Selectable(object):
         raise NotImplementedError
 
 
-class Filter(tuple, Selectable):
-    def __new__(cls, db, operator, *arguments):
-        return super(Filter, cls).__new__(cls, (operator,) + arguments)
-
+class Filter(Selectable):
     def __init__(self, db, operator, *arguments):
+        self.operator = operator
+        self.arguments = arguments
         tables = set(arg.table for arg in arguments if isinstance(arg, Column))
         Selectable.__init__(self, db, tables)
 
     def __repr__(self):
-        return 'Filter({})'.format(", ".join(repr(a) for a in self))
+        return 'Filter({}, {})'.format(
+            repr(self.operator),
+            ", ".join(repr(a) for a in self.arguments),
+        )
 
     def __and__(self, other):
         return Filter(self.db, 'AND', self, other)
@@ -278,12 +283,12 @@ class Filter(tuple, Selectable):
 
 
 class Column(Filter):
-    def __init__(self, table, name, datatype, primarykey):
-        self.db = table.db
+    def __init__(self, db, table, name, datatype, primarykey):
         self.table = table
         self.name = name
         self.datatype = datatype
         self.primarykey = primarykey
+        Filter.__init__(self, db, 'ID', self)
 
     def __key__(self):
         return self.name
@@ -297,7 +302,7 @@ class Column(Filter):
 
 class Table(Selectable):
     def __init__(self, db, name, primarykey=None):
-        self.db = db
+        DbObject.__init__(self, db)
         self.name = name
         self.columns = OrderedCollection()
         Selectable.__init__(self, db, {self})
@@ -318,7 +323,7 @@ class Table(Selectable):
         return "Table({!r})".format(self.name)
 
     def add_column(self, name, datatype=DataType, primarykey=False):
-        column = Column(self, name, datatype, primarykey)
+        column = Column(self.db, self, name, datatype, primarykey)
         self.columns.add(column)
         return column
 
