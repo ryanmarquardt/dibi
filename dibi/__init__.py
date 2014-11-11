@@ -141,8 +141,8 @@ class CleanSQL(str):
         values = list(values)
         if any(not isinstance(value, CleanSQL) for value in values):
             raise TypeError("One or more values are not clean")
-        return CleanSQL(
-            self.original.format(joiner.join(values)))
+        return self.__class__(
+            str.format(self, joiner.join(values)))
 
     def join(self, values):
         values = list(values)
