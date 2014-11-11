@@ -64,6 +64,15 @@ class Collection(MutableMapping, MutableSet):
 
     >>> collection.get('b')
 
+    Collections exhibit features of both sets and dicts, and can be converted
+    to either type.
+
+    >>> set(collection)
+    {KeyValue('a', 1)}
+
+    >>> dict(collection)
+    {'a': KeyValue('a', 1)}
+
     """
 
     def __init__(self, *items, **kwargs):
