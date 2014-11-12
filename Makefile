@@ -16,7 +16,7 @@ all: build
 
 test: build
 	find $(NAME) -name '*.py' -exec pep8 --show-source '{}' \;
-	$(TESTPYTHON) dibi/__init__.py test
+	$(TESTPYTHON) test.py
 
 build: $(SRCFILES)
 	@$(SETUP) build
