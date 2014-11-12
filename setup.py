@@ -12,6 +12,7 @@ setup(
     packages=[
         'dibi',
         'dibi.driver',
+        'dibi.datatype',
     ],
     license='Simplified BSD License',
 )

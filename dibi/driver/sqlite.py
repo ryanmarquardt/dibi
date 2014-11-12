@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 
-from .common import DbapiDriver, C, register
-
-from .. import NoSuchTableError
+from ..driver.common import DbapiDriver, C, register, NoSuchTableError
+from ..datatype import Text, Integer, Float, Blob, DateTime
 
 import sqlite3
 

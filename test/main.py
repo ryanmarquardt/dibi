@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
 import dibi
-from dibi import DB, Table, Integer, Text, Date, NoColumnsError
+from dibi import DB, Table, NoColumnsError
+from dibi.datatype import Integer, Text, Date
 
 import datetime
 
