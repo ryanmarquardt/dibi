@@ -74,7 +74,7 @@ dibi.NoSuchTableError: Table 'orders' does not exist
 """
 
 
-from dibi.collection import Collection, OrderedCollection
+from .collection import Collection, OrderedCollection
 
 import datetime
 import sqlite3
@@ -296,7 +296,7 @@ class Table(Selectable):
         return self.columns[key]
 
 
-from . import driver
+import dibi.driver
 
 
 class DB(object):

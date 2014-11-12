@@ -11,6 +11,7 @@ setup(
     description='Object storage wrapper on databases',
     packages=[
         'dibi',
+        'dibi.driver',
     ],
     license='Simplified BSD License',
 )
