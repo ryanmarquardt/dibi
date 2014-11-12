@@ -372,6 +372,14 @@ class Driver(metaclass=ABCMeta):
         """
         return
 
+    @contextmanager
+    def catch_exception(self):
+        try:
+            yield
+        except Exception as error:
+            self.handle_exception(error)
+            raise
+
     @abstractmethod
     def connect(self, address, *parameters, **kw_parameters):
         """
@@ -481,14 +489,6 @@ class DbapiDriver(Driver):
             str(C('{};').join_format(C(' '), (word for word in words if word)))
         with self.transaction():
             return self.connection.execute(statement, values)
-
-    @contextmanager
-    def catch_exception(self):
-        try:
-            yield
-        except Exception as error:
-            self.handle_exception(error)
-            raise
 
     @abstractmethod
     def map_type(self, database_type, database_size):
