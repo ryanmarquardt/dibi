@@ -207,16 +207,13 @@ class Table(Selectable):
     def __init__(self, db, name, primarykey=None):
         self.name = name
         Selectable.__init__(self, db, {self})
-        self.columns = OrderedCollection()
+        self.columns = OrderedCollection(lambda col: col.name)
         if primarykey:
             self.primarykey = self.add_column(
                 primarykey, Integer, primarykey=True)
 
     def __hash__(self):
         return hash(self.name)
-
-    def __key__(self):
-        return self.name
 
     def __str__(self):
         return self.name
@@ -253,7 +250,7 @@ class DB(object):
     def __init__(self, path=':memory:'):
         self.driver = driver.get('sqlite')(path)
         self.path = path
-        self.tables = Collection()
+        self.tables = Collection(str)
 
     def __hash__(self):
         return hash(self.path)

@@ -4,23 +4,10 @@ from collections import OrderedDict, MutableSet, MutableMapping, Mapping, Set
 from abc import ABCMeta, abstractmethod
 
 
-class Collectable(metaclass=ABCMeta):
-    @abstractmethod
-    def __key__(self):
-        return ''
-
-    def __hash__(self):
-        return hash(self.__key__())
-
-    def __eq__(self, other):
-        if isinstance(other, Collectable):
-            return self.__key__() == other.__key__()
-
-
-class KeyValue(Collectable):
+class KeyValue(object):
     """
 
-    >>> KeyValue('a', 1).__key__()
+    >>> KeyValue('a', 1).get_key()
     'a'
 
     >>> KeyValue('a', 1) == KeyValue('a', 3)
@@ -32,17 +19,25 @@ class KeyValue(Collectable):
         self.key = key
         self.value = value
 
-    def __key__(self):
+    def get_key(self):
         return self.key
 
     def __repr__(self):
         return "KeyValue({key!r}, {value!r})".format(**self.__dict__)
 
+    def __hash__(self):
+        return hash(self.key)
+
+    def __eq__(self, other):
+        if isinstance(other, KeyValue):
+            return self.key == other.key
+        return NotImplemented
+
 
 class Collection(MutableMapping, MutableSet):
     """Set with item access by key
 
-    >>> collection = Collection()
+    >>> collection = Collection(KeyValue.get_key)
 
     >>> a = collection.add(KeyValue('a', 1))
 
@@ -75,7 +70,8 @@ class Collection(MutableMapping, MutableSet):
 
     """
 
-    def __init__(self, *items, **kwargs):
+    def __init__(self, key_function, *items, **kwargs):
+        self.__key_function = key_function
         self.__items = kwargs.pop('storage', dict())
         for item in items:
             self.add(item)
@@ -83,10 +79,10 @@ class Collection(MutableMapping, MutableSet):
     def __repr__(self):
         """
 
-        >>> Collection()
+        >>> Collection(KeyValue.get_key)
         Collection()
 
-        >>> Collection(KeyValue('a', 1))
+        >>> Collection(KeyValue.get_key, KeyValue('a', 1))
         Collection(KeyValue('a', 1))
 
         """
@@ -95,7 +91,7 @@ class Collection(MutableMapping, MutableSet):
     def __delitem__(self, key):
         """Remove an item by key
 
-        >>> c = Collection(KeyValue('a', 1))
+        >>> c = Collection(KeyValue.get_key, KeyValue('a', 1))
 
         >>> del c['a']
 
@@ -108,7 +104,7 @@ class Collection(MutableMapping, MutableSet):
     def __getitem__(self, key):
         """Retrieve an item by key
 
-        >>> c = Collection(KeyValue('a', 1))
+        >>> c = Collection(KeyValue.get_key, KeyValue('a', 1))
 
         >>> c['a']
         KeyValue('a', 1)
@@ -119,7 +115,7 @@ class Collection(MutableMapping, MutableSet):
     def keys(self):
         """Return keys of all members
 
-        >>> list(Collection(KeyValue('a', 1)).keys())
+        >>> list(Collection(KeyValue.get_key, KeyValue('a', 1)).keys())
         ['a']
 
         """
@@ -129,7 +125,7 @@ class Collection(MutableMapping, MutableSet):
         """Returns an iterator over collection members. Alias for
         iter(Collection).
 
-        >>> list(Collection(KeyValue('a', 1)).values())
+        >>> list(Collection(KeyValue.get_key, KeyValue('a', 1)).values())
         [KeyValue('a', 1)]
 
         """
@@ -138,7 +134,7 @@ class Collection(MutableMapping, MutableSet):
     def items(self):
         """Returns an iterator over collection keys and corresponding members.
 
-        >>> list(Collection(KeyValue('a', 1)).items())
+        >>> list(Collection(KeyValue.get_key, KeyValue('a', 1)).items())
         [('a', KeyValue('a', 1))]
         """
         return self.__items.items()
@@ -146,7 +142,9 @@ class Collection(MutableMapping, MutableSet):
     def __iter__(self):
         """Iterate over collection members
 
-        >>> c = OrderedCollection(KeyValue('a', 1), KeyValue('b', 2))
+        >>> c = OrderedCollection(KeyValue.get_key, KeyValue('a', 1))
+
+        >>> _ = c.add(KeyValue('b', 2))
 
         >>> for item in c:
         ...   print(item)
@@ -159,10 +157,10 @@ class Collection(MutableMapping, MutableSet):
     def __len__(self):
         """Returns the number of items in the collection
 
-        >>> len(Collection())
+        >>> len(Collection(KeyValue.get_key))
         0
 
-        >>> c = Collection()
+        >>> c = Collection(KeyValue.get_key)
 
         >>> c.add(KeyValue('a', 1))
         KeyValue('a', 1)
@@ -179,7 +177,7 @@ class Collection(MutableMapping, MutableSet):
     def __setitem__(self, key, value):
         """Setting items is not supported
 
-        >>> Collection()['a'] = None
+        >>> Collection(KeyValue.get_key)['a'] = None
         Traceback (most recent call last):
          ...
         NotImplementedError: __setitem__ is not supported. Use Collection.add()
@@ -196,7 +194,7 @@ class Collection(MutableMapping, MutableSet):
 
         Returns the item which exists in the collection after addition.
 
-        >>> c = Collection(KeyValue('a', 1))
+        >>> c = Collection(KeyValue.get_key, KeyValue('a', 1))
 
         >>> c.add(KeyValue('a', 2))
         KeyValue('a', 2)
@@ -205,7 +203,7 @@ class Collection(MutableMapping, MutableSet):
         KeyValue('a', 2)
 
         """
-        key = item.__key__()
+        key = self.__key_function(item)
         if replace or key not in self.__items:
             self.__items[key] = item
             return item
@@ -219,7 +217,7 @@ class Collection(MutableMapping, MutableSet):
 
         >>> a = KeyValue('a', 1)
 
-        >>> c = Collection(a)
+        >>> c = Collection(KeyValue.get_key, a)
 
         >>> c.discard(a)
 
@@ -229,12 +227,12 @@ class Collection(MutableMapping, MutableSet):
         >>> c.discard(KeyValue('b', 2))
 
         """
-        self.__items.pop(item.__key__(), None)
+        self.__items.pop(self.__key_function(item), None)
 
     def remove(self, item):
         """Remove an item, raising KeyError if it is not present.
 
-        >>> c = Collection(KeyValue('a', 1))
+        >>> c = Collection(KeyValue.get_key, KeyValue('a', 1))
 
         >>> c.remove(KeyValue('a', 1))
 
@@ -246,14 +244,14 @@ class Collection(MutableMapping, MutableSet):
          ...
         KeyError: 'c'
         """
-        del self.__items[item.__key__()]
+        del self.__items[self.__key_function(item)]
 
     def __contains__(self, key_or_item):
         """Check for containment by key or identity.
 
         >>> a = KeyValue('a', 1)
 
-        >>> c = Collection(a)
+        >>> c = Collection(KeyValue.get_key, a)
 
         >>> a in c
         True
@@ -272,7 +270,7 @@ class Collection(MutableMapping, MutableSet):
         if has_item:
             return True
         try:
-            key = key_or_item.__key__()
+            key = self.__key_function(key_or_item)
         except AttributeError:
             return False
         return key in self.__items
@@ -280,9 +278,9 @@ class Collection(MutableMapping, MutableSet):
     def __eq__(self, other):
         """
 
-        >>> c = Collection(KeyValue('a', 1))
+        >>> c = Collection(KeyValue.get_key, KeyValue('a', 1))
 
-        >>> c == Collection(KeyValue('a', 1))
+        >>> c == Collection(KeyValue.get_key, KeyValue('a', 1))
         True
 
         >>> c == {KeyValue('a', 1)}
@@ -302,7 +300,10 @@ class Collection(MutableMapping, MutableSet):
 class OrderedCollection(Collection):
     """Collection which preserves order in which items are added
 
-    >>> c = OrderedCollection(KeyValue('a', 1), KeyValue('c', 3))
+    >>> c = OrderedCollection(KeyValue.get_key, KeyValue('a', 1))
+
+    >>> c.add(KeyValue('c', 3))
+    KeyValue('c', 3)
 
     >>> c.add(KeyValue('b', 2))
     KeyValue('b', 2)
@@ -314,5 +315,5 @@ class OrderedCollection(Collection):
     b 2
 
     """
-    def __init__(self, *items):
-        Collection.__init__(self, storage=OrderedDict(), *items)
+    def __init__(self, key_function, *items):
+        Collection.__init__(self, key_function, storage=OrderedDict(), *items)
