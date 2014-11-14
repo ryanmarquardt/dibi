@@ -250,7 +250,7 @@ class DB(object):
     def __init__(self, path=':memory:'):
         self.driver = driver.get('sqlite')(path)
         self.path = path
-        self.tables = Collection(str)
+        self.tables = Collection(lambda table: table.name)
 
     def __hash__(self):
         return hash(self.path)
