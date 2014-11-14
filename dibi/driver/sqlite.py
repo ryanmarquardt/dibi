@@ -23,8 +23,7 @@ class SQLiteDriver(DbapiDriver):
                 raise NoSuchTableError(table)
             elif message.endswith(': syntax error'):
                 raise SyntaxError((message, self.last_statement))
-        if isinstance(error, (sqlite3.OperationalError,
-                              sqlite3.ProgrammingError)):
+        if isinstance(error, sqlite3.Error):
             raise Exception((error, self.last_statement))
 
     def map_type(self, database_type, database_size):
