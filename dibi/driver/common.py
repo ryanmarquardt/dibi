@@ -61,12 +61,15 @@ class Driver(metaclass=ABCMeta):
     @abstractmethod
     def handle_exception(self, error):
         """
-
+        Process, convert, or ignore errors raised by interface.
         """
         return
 
     @contextmanager
     def catch_exception(self):
+        """
+        Wraps calls to underlying data store, to intercept errors.
+        """
         try:
             yield
         except Exception as error:
@@ -76,7 +79,7 @@ class Driver(metaclass=ABCMeta):
     @abstractmethod
     def connect(self, address, *parameters, **kw_parameters):
         """
-
+        Connect to the database and return the interface object.
         """
         return
 
@@ -84,36 +87,60 @@ class Driver(metaclass=ABCMeta):
 
     @abstractmethod
     def create_table(self, name, columns, force_create):
+        """
+        Add a table to the database schema.
+        """
         return
 
     @abstractmethod
     def drop_table(self, name, ignore_absence):
+        """
+        Remove a table and all of its data from the database schema.
+        """
         return
 
     @abstractmethod
     def list_tables(self):
+        """
+        Returns a list of all table identifiers.
+        """
         return
 
     @abstractmethod
     def list_columns(self, table):
+        """
+        Returns a list of Columns in table.
+        """
         return
 
     # Row/object methods
 
     @abstractmethod
     def insert(self, table, values):
+        """
+        Add a new row to table with values and return its primary key.
+        """
         return
 
     @abstractmethod
     def select(self, tables, criteria, columns, distinct):
+        """
+        Return rows of columns from tables which match criteria.
+        """
         return
 
     @abstractmethod
     def update(self, table, criteria, values):
+        """
+        Set new values for rows which match critera.
+        """
         return
 
     @abstractmethod
     def delete(self, tables, criteria):
+        """
+        Delete rows which match criteria.
+        """
         return
 
 
@@ -124,6 +151,9 @@ def operator(string):
 
 
 class DbapiDriver(Driver):
+    """
+    Driver subclass for writing DBAPI compatible drivers.
+    """
     def __init__(self, dbapi_module, *args, **kwargs):
         # Fail early if these required attributes aren't present
         self.identifier_quote
