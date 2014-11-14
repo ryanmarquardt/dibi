@@ -193,9 +193,6 @@ class Column(Filter):
         self.primarykey = primarykey
         Filter.__init__(self, db, 'ID', self)
 
-    def __key__(self):
-        return self.name
-
     def __repr__(self):
         return str(self)
 

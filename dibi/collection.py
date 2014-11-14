@@ -213,7 +213,7 @@ class Collection(MutableMapping, MutableSet):
     def discard(self, item):
         """Remove an item if it is present.
 
-        Equivalent to Collection.__delitem__(item.__key__())
+        Equivalent to Collection.__delitem__(key(item))
 
         >>> a = KeyValue('a', 1)
 
