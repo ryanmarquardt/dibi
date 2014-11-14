@@ -222,9 +222,9 @@ class Table(Selectable):
         return "Table({!r})".format(self.name)
 
     def add_column(self, name, datatype=DataType, primarykey=False):
-        column = Column(self.db, self, name, datatype, primarykey)
-        self.columns.add(column)
-        return column
+        return self.columns.add(
+            Column(self.db, self, name, datatype, primarykey),
+            replace=False)
 
     def save(self, force_create=False):
         if not self.columns:
