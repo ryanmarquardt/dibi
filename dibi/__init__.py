@@ -309,10 +309,44 @@ class DB(object):
         driver = dibi.driver.get(driver_name)
         return cls(driver())
 
+    @classmethod
+    def connect_uri(cls, uri):
+        """
+        Form a database connection by parsing a URI describing the database.
+
+        Valid URIs are in the form 'scheme://path_info'.
+
+        >>> db = DB.connect_uri('sqlite://')
+
+        >>> db.driver
+        SQLiteDriver(path=':memory:')
+
+        >>> DB.connect_uri('http://database.com')
+        Traceback (most recent call last):
+         ...
+        KeyError: 'http'
+
+        >>> DB.connect_uri('not a uri')
+        Traceback (most recent call last):
+         ...
+        ValueError: Cannot connect to invalid uri 'not a uri'
+        """
+        scheme, successful, remainder = uri.partition('://')
+        if not successful:
+            raise ValueError("Cannot connect to invalid uri {!r}".format(uri))
+        driver = dibi.driver.get(scheme)
+        if not hasattr(driver, 'parse_uri_path'):
+            raise TypeError("Driver {!r} does not support URIs".format(scheme))
+        parameters = driver.parse_uri_path(remainder)
+        return cls(driver(**parameters))
+
     def __hash__(self):
         return hash(self.driver)
 
     def add_table(self, name, primarykey=None):
         return self.tables.add(Table(self, name, primarykey=primarykey))
+
+    def __repr__(self):
+        return "<DB({!r})>".format(self.driver)
 
 connect = DB.connect
