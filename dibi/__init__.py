@@ -2,7 +2,7 @@
 
 """
 
->>> mydb = DB()
+>>> mydb = DB.connect('sqlite')
 
 >>> orders = mydb.add_table('orders')
 
@@ -300,13 +300,19 @@ import dibi.driver
 
 
 class DB(object):
-    def __init__(self, path=':memory:'):
-        self.driver = driver.get('sqlite')(path)
-        self.path = path
+    def __init__(self, driver):
+        self.driver = driver
         self.tables = Collection()
 
+    @classmethod
+    def connect(cls, driver_name, *args, **kwargs):
+        driver = dibi.driver.get(driver_name)
+        return cls(driver())
+
     def __hash__(self):
-        return hash(self.path)
+        return hash(self.driver)
 
     def add_table(self, name, primarykey=None):
         return self.tables.add(Table(self, name, primarykey=primarykey))
+
+connect = DB.connect
