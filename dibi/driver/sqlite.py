@@ -15,6 +15,15 @@ class SQLiteDriver(DbapiDriver):
 
     identifier_quote = C('"')
 
+    def __repr__(self):
+        return "SQLiteDriver(path={!r})".format(self.path)
+
+    @classmethod
+    def parse_uri_path(cls, path):
+        if not path or path == ':memory:':
+            return dict(path=':memory:')
+        return dict(path=path)
+
     def handle_exception(self, error):
         if isinstance(error, sqlite3.OperationalError):
             message = error.args[0]

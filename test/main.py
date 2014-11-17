@@ -7,12 +7,46 @@ from dibi.datatype import Integer, Text, Date
 import datetime
 
 import doctest
-doctest.testmod(dibi)
-
-import dibi.collection
-doctest.testmod(dibi.collection)
-
 import logging
+
+from importlib import reload, import_module
+
+modules = (
+    'dibi',
+    'dibi.collection',
+    'dibi.driver',
+    'dibi.driver.common',
+    'dibi.driver.sqlite',
+)
+
+def doctest_modules(*names):
+    error_message = "Unable to process {name}: {error}"
+    success_message = ("Processed {attempted} statements successfully"
+                       " in {name}")
+    failure_message = ("{failed}/{attempted} failed while processing"
+                        "{name}")
+    failures = 0
+    for name in names:
+        variables = dict(name=name)
+        try:
+            module = import_module(name)
+            result = doctest.testmod(module)
+        except Exception as error:
+            variables['error'] = error
+            logging.error(error_message.format(**variables))
+            continue
+        variables['attempted'] = result.attempted
+        variables['failed'] = result.failed
+        if result.failed:
+            logging.warning(failure_message.format(**variables))
+        else:
+            logging.info(success_message.format(**variables))
+    return failures
+        
+
+if __name__ == '__main__':
+    doctest_modules(*modules)
+
 import traceback
 from contextlib import contextmanager
 
@@ -99,7 +133,7 @@ class Test(object):
 
 test = Test()
 
-test.db = DB()
+test.db = DB.connect('sqlite')
 
 with test("Create a table"):
     orders = test.db.add_table('orders')
