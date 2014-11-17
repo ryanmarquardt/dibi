@@ -1,0 +1,122 @@
+
+from .common import DbapiDriver, C, register
+
+from .. import NoSuchTableError
+
+import warnings
+
+import mysql.connector as mysql
+
+
+@register('mysql')
+class MysqlDriver(DbapiDriver):
+    """Driver for mysql databases
+
+    mysql requires only one parameter: database, which is the name of the
+    database to use.
+
+    >>> import dibi
+
+    >>> mydb = dibi.connect('mysql', 'silk_test', user='silk_test',
+    ...                     engine='InnoDB')
+    """
+
+    engines = {'MyISAM', 'InnoDB', 'MERGE', 'MEMORY', 'BDB', 'EXAMPLE',
+               'FEDERATED', 'ARCHIVE', 'CSV', 'BLACKHOLE'}
+
+    identifier_quote = C('`')
+
+    def __init__(self, database, user='root', password=None, host='localhost',
+                 engine='MyISAM', debug=False):
+        self.database = database
+        self.user = user
+        self.password = password
+        super(MysqlDriver, self).__init__(
+            mysql, host=host, user=user,
+            password=password or '', db=database, debug=debug)
+        self.engine = engine
+
+    @property
+    def engine(self):
+        return self.__dict__['engine']
+
+    @engine.setter
+    def engine(self, new):
+        assert new in self.engines, 'Unknown storage engine %r' % new
+        if new in {'InnoDB', 'BDB'}:
+            self.features.add('transactions')
+        else:
+            self.features.discard('transactions')
+        self.__dict__['engine'] = new
+
+    def map_type(self, database_type, database_size):
+        try:
+            return dict(
+                INT=C("INT"),
+                REAL=C("REAL"),
+                TEXT=C("VARCHAR({})").format(database_size),
+                BLOB=C("BLOB"),
+                DATETIME=C("DATETIME"),
+            )[database_type]
+        except KeyError:
+            raise ValueError(
+                "datatype {!r}({}) did not produce a valid MySQL type".format(
+                    database_type, database_size))
+
+    def handle_exception(self, e):
+        if isinstance(e, MySQLdb.OperationalError):
+            code = e.args[0]
+            if code == 1049:
+                pass
+        # raise make_IOError('ENOENT', 'No such database: %r' % self.database)
+            elif code in (1044, 1045):
+                raise AuthenticationError(self.user)
+            elif code == 1054:
+                raise KeyError(e.args[1])
+        elif isinstance(e, MySQLdb.IntegrityError):
+            code = e.args[0]
+            if code == 1062:
+                raise ValueError(e.message)
+        elif isinstance(e, MySQLdb.ProgrammingError):
+            text = e.args[1].partition("'")[2].rpartition("'")[0]
+            offset = self.lastsql.index(text)
+            raise SQLSyntaxError(self.lastsql, offset, text)
+
+    def unmap_type(self, t):
+        name, _, size = t.partition('(')
+        if name in ('int', 'tinyint'):
+            return int if int((size or '0 ')[:-1]) > 1 else bool
+        return {'text': unicode, 'varchar': unicode,
+                'timestamp': datetime.datetime, 'double': float, 'real': float,
+                'blob': bytes}.get(name)
+
+    def list_tables_sql(self):
+        return """SHOW TABLES;"""
+
+    def list_columns(self, table):
+        for name, v_type, null, key, default, extra in self.execute(
+                "DESCRIBE %s;" % table):
+            ut = self.unmap_type(v_type)
+            if not ut:
+                raise Exception('Unknown column type %s' % v_type)
+            yield (str(name), ut, null != 'YES', default)
+
+    def create_table_if_nexists(self, name, columns, primarykeys):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            return self.execute(
+                "CREATE%s TABLE IF NOT EXISTS %s(%s%s) ENGINE=%s;" % (
+                    ' TEMPORARY' if self.debug else '',
+                    name,
+                    ', '.join(columns),
+                    ((', PRIMARY KEY (%s)' % ', '.join(
+                        '%s ASC' % p for p in primarykeys)) if primarykeys
+                        else ''),
+                    self.engine,
+                ))
+
+    def insert_rowid(self, cursor):
+        return self.connection.insert_id()
+
+    op_SUM = staticmethod(lambda a: 'sum(%s)' % a)
+    op_CONCATENATE = staticmethod(lambda a, b: 'CONCAT(%s,%s)' % (a, b))
