@@ -1,0 +1,12 @@
+#!/bin/sh
+
+if [ "$1" = "-1" ]; then
+    if git status | grep -q 'Your branch is ahead of'; then
+        git pull
+        git push
+    fi
+    git status -s
+    make test
+else
+    watch "$(readlink -f "$0")" -1
+fi
