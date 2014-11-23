@@ -22,12 +22,13 @@ modules = (
     'dibi.driver.sqlite',
 )
 
+
 def doctest_modules(*names):
     error_message = "Unable to process {name}: {error}"
     success_message = ("Processed {attempted} statements successfully"
                        " in {name}")
     failure_message = ("{failed}/{attempted} failed while processing"
-                        "{name}")
+                       " {name}")
     failures = 0
     for name in names:
         variables = dict(name=name)
@@ -46,6 +47,7 @@ def doctest_modules(*names):
         else:
             logging.info(success_message.format(**variables))
     return failures
+
 
 def test_drivers():
     configuration = configparser.ConfigParser()
