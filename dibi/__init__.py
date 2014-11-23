@@ -69,27 +69,17 @@ False
 >>> orders.insert(amount=100, quantity=2, date='2000-01-02')
 Traceback (most recent call last):
  ...
-dibi.NoSuchTableError: Table 'orders' does not exist
+dibi.error.NoSuchTableError: Table 'orders' does not exist
 
 """
 
 
 from .collection import Collection, OrderedCollection
 from .datatype import DataType, Integer, Float, Text, Blob, DateTime, Date
+from .error import NoSuchTableError, NoColumnsError
 
 import datetime
 import sqlite3
-
-
-class NoSuchTableError(NameError):
-    def __init__(self, table_name):
-        super(NoSuchTableError, self).__init__(
-            "Table {!r} does not exist".format(table_name))
-        self.name = table_name
-
-
-class NoColumnsError(ValueError):
-    pass
 
 
 class DbObject(object):

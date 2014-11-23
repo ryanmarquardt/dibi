@@ -1,7 +1,7 @@
 
 from .common import DbapiDriver, C, register
 
-from .. import NoSuchTableError
+from ..error import NoSuchTableError, ConnectionError
 
 import warnings
 
@@ -33,7 +33,7 @@ class MysqlDriver(DbapiDriver):
         self.password = password
         super(MysqlDriver, self).__init__(
             mysql, host=host, user=user,
-            password=password or '', db=database, debug=debug)
+            password=password or '', db=database)
         self.engine = engine
 
     @property
@@ -63,24 +63,27 @@ class MysqlDriver(DbapiDriver):
                 "datatype {!r}({}) did not produce a valid MySQL type".format(
                     database_type, database_size))
 
-    def handle_exception(self, e):
-        if isinstance(e, MySQLdb.OperationalError):
-            code = e.args[0]
-            if code == 1049:
-                pass
-        # raise make_IOError('ENOENT', 'No such database: %r' % self.database)
-            elif code in (1044, 1045):
-                raise AuthenticationError(self.user)
-            elif code == 1054:
-                raise KeyError(e.args[1])
-        elif isinstance(e, MySQLdb.IntegrityError):
-            code = e.args[0]
-            if code == 1062:
-                raise ValueError(e.message)
-        elif isinstance(e, MySQLdb.ProgrammingError):
-            text = e.args[1].partition("'")[2].rpartition("'")[0]
-            offset = self.lastsql.index(text)
-            raise SQLSyntaxError(self.lastsql, offset, text)
+    def handle_exception(self, error):
+        if isinstance(error, mysql.errors.InterfaceError):
+            if error.errno == 2003:
+                raise ConnectionError(error.msg)
+        #if isinstance(e, MySQLdb.OperationalError):
+            #code = e.args[0]
+            #if code == 1049:
+                #pass
+        ## raise make_IOError('ENOENT', 'No such database: %r' % self.database)
+            #elif code in (1044, 1045):
+                #raise AuthenticationError(self.user)
+            #elif code == 1054:
+                #raise KeyError(e.args[1])
+        #elif isinstance(e, MySQLdb.IntegrityError):
+            #code = e.args[0]
+            #if code == 1062:
+                #raise ValueError(e.message)
+        #elif isinstance(e, MySQLdb.ProgrammingError):
+            #text = e.args[1].partition("'")[2].rpartition("'")[0]
+            #offset = self.lastsql.index(text)
+            #raise SQLSyntaxError(self.lastsql, offset, text)
 
     def unmap_type(self, t):
         name, _, size = t.partition('(')
