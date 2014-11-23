@@ -8,7 +8,7 @@ import sqlite3
 
 @register('sqlite')
 class SQLiteDriver(DbapiDriver):
-    def __init__(self, path=':memory:'):
+    def __init__(self, path=':memory:', debug=False):
         super(SQLiteDriver, self).__init__(
             sqlite3, path, sqlite3.PARSE_DECLTYPES)
         self.path = path

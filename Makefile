@@ -16,7 +16,7 @@ all: build
 
 test: build
 	find $(NAME) -name '*.py' -exec pep8 --show-source '{}' \;
-	$(TESTPYTHON) test/main.py
+	$(TESTPYTHON) -m test
 
 build: $(SRCFILES)
 	@$(SETUP) build
