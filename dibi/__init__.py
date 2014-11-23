@@ -241,7 +241,7 @@ class DB(object):
     @classmethod
     def connect(cls, driver_name, *args, **kwargs):
         driver = dibi.driver.get(driver_name)
-        return cls(driver())
+        return cls(driver(*args, **kwargs))
 
     @classmethod
     def connect_uri(cls, uri):
