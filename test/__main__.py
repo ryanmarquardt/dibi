@@ -14,13 +14,35 @@ from importlib import reload, import_module
 
 from .driver import test_driver
 
-modules = (
-    'dibi',
-    'dibi.collection',
-    'dibi.driver',
-    'dibi.driver.common',
-    'dibi.driver.sqlite',
-)
+import os
+
+
+def split_path(path):
+    parts = []
+    while path:
+        path, tail = os.path.split(path)
+        parts.insert(0, tail)
+    return parts
+
+
+def find_package_module_names(package):
+    if isinstance(package, str):
+        package = import_module(package)
+    root = os.path.dirname(package.__file__)
+    for base, dirs, files in os.walk(root):
+        if '__pycache__' in dirs:
+            dirs.remove('__pycache__')
+        for filename in sorted(files):
+            if filename.endswith('.py'):
+                parts = split_path(os.path.relpath(
+                    os.path.join(base, filename[:-3]), root))
+                if parts[-1] == '__init__':
+                    del parts[-1]
+                parts.insert(0, package.__name__)
+                yield '.'.join(parts)
+
+
+modules = list(find_package_module_names('dibi'))
 
 
 def doctest_modules(*names):
