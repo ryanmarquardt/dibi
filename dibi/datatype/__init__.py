@@ -46,8 +46,10 @@ class DateTime(Text):
 
 
 class Float(DataType):
-    pass
+    database_type = 'REAL'
+    database_size = 64
 
 
 class Blob(DataType):
-    pass
+    database_type = 'BLOB'
+    database_size = 512
