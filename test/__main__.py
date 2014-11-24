@@ -121,7 +121,7 @@ def test_drivers():
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.WARNING)
 
     exit_code = 0
     failures = doctest_modules(*modules)

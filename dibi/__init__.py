@@ -21,7 +21,10 @@ True
 >>> orders.save()
 
 >>> orders.insert(amount=100, quantity=2, date='2000-01-01')
+1
+
 >>> orders.insert(amount=450, quantity=11, date='2000-04-10')
+2
 
 >>> allrows = orders.select()
 
@@ -224,7 +227,7 @@ class Table(Selectable):
         self.db.tables.discard(self)
 
     def insert(self, **values):
-        self.db.driver.insert(self, values)
+        return self.db.driver.insert(self, values)
 
     def __getattr__(self, key):
         return self.columns[key]

@@ -117,9 +117,5 @@ class MysqlDriver(DbapiDriver):
             C("ENGINE={}").format(self.engine)
         )
 
-    def insert(self, table, values):
-        cursor = super(MysqlDriver, self).insert(table, values)
-        return cursor.lastrowid
-
     op_SUM = staticmethod(lambda a: 'sum(%s)' % a)
     op_CONCATENATE = staticmethod(lambda a, b: 'CONCAT(%s,%s)' % (a, b))

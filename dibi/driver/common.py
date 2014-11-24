@@ -305,7 +305,7 @@ class DbapiDriver(Driver):
 
     def insert(self, table, values):
         names, placeholders, values = self.placeholders(values)
-        return self.execute(
+        cursor = self.execute(
             C("INSERT INTO"),
             self.identifier(table.name),
             C("({})").join_format(
@@ -314,6 +314,7 @@ class DbapiDriver(Driver):
             C("({})").join_format(C(", "), placeholders),
             values=values
         )
+        return cursor.lastrowid
 
     def select(self, tables, criteria, columns, distinct):
         return self.execute_ro(
