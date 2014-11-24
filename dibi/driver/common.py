@@ -176,15 +176,25 @@ class DbapiDriver(Driver):
 
     def placeholders(self, values):
         if self.dbapi_module.paramstyle == 'qmark':
-            return (C("?") for key in values)
+            return (values.keys(),
+                    (C("?") for key in values),
+                    values.values())
         elif self.dbapi_module.paramstyle == 'format':
-            return (C("%s") for key in values)
+            return (values.keys(),
+                    (C("%s") for key in values),
+                    values.values())
         elif self.dbapi_module.paramstyle == 'numeric':
-            return (C(":{}").format(i) for i, key in enumerate(values))
+            return (values.keys(),
+                    (C(":{}").format(C(i)) for i, key in enumerate(values)),
+                    values.values())
         elif self.dbapi_module.paramstyle == 'named':
-            return (C(":{}").format(key) for key in values)
+            return (values.keys(),
+                    (C(":{}").format(C(key)) for key in values),
+                    values)
         elif self.dbapi_module.paramstyle == 'pyformat':
-            return (C("%({})s").format(key) for key in values)
+            return (values.keys(),
+                    (C("%({})s").format(C(key)) for key in values),
+                    values)
 
     def commit(self):
         self.connection.commit()
@@ -289,14 +299,15 @@ class DbapiDriver(Driver):
     # Row methods
 
     def insert(self, table, values):
+        names, placeholders, values = self.placeholders(values)
         return self.execute(
             C("INSERT INTO"),
             self.identifier(table.name),
             C("({})").join_format(
-                C(", "), (self.identifier(key) for key in values.keys())),
+                C(", "), (self.identifier(key) for key in names)),
             C("VALUES"),
-            C("({})").join_format(C(", "), self.placeholders(values)),
-            values=values.values()
+            C("({})").join_format(C(", "), placeholders),
+            values=values
         )
 
     def select(self, tables, criteria, columns, distinct):
@@ -314,7 +325,8 @@ class DbapiDriver(Driver):
         )
 
     def update(self, table, criteria, values):
-        pairs = zip(values.keys(), self.placeholders(values))
+        names, placeholders, values = self.placeholders(values)
+        pairs = zip(names, placeholders)
         self.execute(
             C("UPDATE"),
             self.identifier(table.name),
@@ -327,7 +339,7 @@ class DbapiDriver(Driver):
             ),
             C("WHERE") if criteria else None,
             self.expression(criteria) if criteria else None,
-            values=values.values(),
+            values=values,
         )
 
     def delete(self, tables, criteria):
