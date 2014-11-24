@@ -108,12 +108,11 @@ def test_drivers():
                         test_driver(driver, parameters)
                     except expect:
                         pass
-                    except Exception as error:
-                        logging.error(
-                            "Got {} instead of {}".format(
-                                error.__class__.__name__, expect.__name__))
-                    logging.error("{} was not raised".format(
-                        expect.__name__))
+                    except Exception:
+                        raise
+                    else:
+                        logging.error("{} was not raised".format(
+                            expect.__name__))
 
 
 if __name__ == '__main__':

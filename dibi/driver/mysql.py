@@ -1,7 +1,8 @@
 
 from .common import DbapiDriver, C, register
 
-from ..error import NoSuchTableError, ConnectionError
+from ..error import (NoSuchTableError, ConnectionError, AuthenticationError,
+                     NoSuchDatabaseError)
 
 import warnings
 
@@ -17,8 +18,6 @@ class MysqlDriver(DbapiDriver):
 
     >>> import dibi
 
-    >>> mydb = dibi.connect('mysql', 'silk_test', user='silk_test',
-    ...                     engine='InnoDB')
     """
 
     engines = {'MyISAM', 'InnoDB', 'MERGE', 'MEMORY', 'BDB', 'EXAMPLE',
@@ -27,13 +26,14 @@ class MysqlDriver(DbapiDriver):
     identifier_quote = C('`')
 
     def __init__(self, database, user='root', password=None, host='localhost',
-                 engine='MyISAM', debug=False):
+                 engine='MyISAM', port=3306, debug=False):
         self.database = database
         self.user = user
         self.password = password
-        super(MysqlDriver, self).__init__(
-            mysql, host=host, user=user,
-            password=password or '', db=database)
+        with self.catch_exception():
+            super(MysqlDriver, self).__init__(
+                mysql, host=host, port=port, user=user,
+                password=password or '', database=database)
         self.engine = engine
 
     @property
@@ -67,13 +67,11 @@ class MysqlDriver(DbapiDriver):
         if isinstance(error, mysql.errors.InterfaceError):
             if error.errno == 2003:
                 raise ConnectionError(error.msg)
-        #if isinstance(e, MySQLdb.OperationalError):
-            #code = e.args[0]
-            #if code == 1049:
-                #pass
-        ## raise make_IOError('ENOENT', 'No such database: %r' % self.database)
-            #elif code in (1044, 1045):
-                #raise AuthenticationError(self.user)
+        elif isinstance(error, mysql.errors.ProgrammingError):
+            if error.errno in (1044, 1045):
+                raise AuthenticationError(self.user)
+            elif error.errno == 1049:
+                raise NoSuchDatabaseError(self.database)
             #elif code == 1054:
                 #raise KeyError(e.args[1])
         #elif isinstance(e, MySQLdb.IntegrityError):
