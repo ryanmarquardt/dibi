@@ -218,6 +218,10 @@ class DbapiDriver(Driver):
                     self.rollback()
 
     def execute(self, *words, **kwargs):
+        with self.transaction():
+            return self.execute_ro(*words, **kwargs)
+
+    def execute_ro(self, *words, **kwargs):
         values = kwargs.pop('values', ())
         if kwargs:
             raise TypeError("DB.execute() got an unexpected keyword argument "
@@ -225,9 +229,9 @@ class DbapiDriver(Driver):
         self.last_statement = statement = \
             str(C('{};').join_format(C(' '), (word for word in words if word)))
         self.last_values = values
-        with self.transaction():
-            cursor = self.connection.cursor()
-            return cursor.execute(statement, values)
+        cursor = self.connection.cursor()
+        cursor.execute(statement, values)
+        return cursor
 
     @abstractmethod
     def map_type(self, database_type, database_size):
@@ -312,7 +316,7 @@ class DbapiDriver(Driver):
         )
 
     def select(self, tables, criteria, columns, distinct):
-        return self.execute(
+        return self.execute_ro(
             C("SELECT"),
             C("DISTINCT") if distinct else None,
             C(", ").join(C("{}.{}").format(

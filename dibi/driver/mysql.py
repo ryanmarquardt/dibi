@@ -95,10 +95,10 @@ class MysqlDriver(DbapiDriver):
                 'blob': bytes}.get(name)
 
     def list_tables(self):
-        return self.execute("SHOW TABLES")
+        return (table for (table,) in self.execute_ro(C("SHOW TABLES")))
 
     def list_columns(self, table):
-        for name, v_type, null, key, default, extra in self.execute(
+        for name, v_type, null, key, default, extra in self.execute_ro(
                 "DESCRIBE %s;" % table):
             ut = self.unmap_type(v_type)
             if not ut:
@@ -117,8 +117,9 @@ class MysqlDriver(DbapiDriver):
             C("ENGINE={}").format(self.engine)
         )
 
-    def insert_rowid(self, cursor):
-        return self.connection.insert_id()
+    def insert(self, table, values):
+        cursor = super(MysqlDriver, self).insert(table, values)
+        return cursor.lastrowid
 
     op_SUM = staticmethod(lambda a: 'sum(%s)' % a)
     op_CONCATENATE = staticmethod(lambda a, b: 'CONCAT(%s,%s)' % (a, b))

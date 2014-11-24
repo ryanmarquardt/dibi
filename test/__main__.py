@@ -106,10 +106,11 @@ def test_drivers():
                 ))
                 parameters['debug'] = True
                 if expect is None:
-                    result = test_driver(driver, parameters)
+                    result = test_driver(name, driver, parameters)
                 else:
                     try:
-                        test_driver(driver, parameters)
+                        test_driver(':'.join((name, variant)),
+                                    driver, parameters)
                     except expect:
                         pass
                     except Exception:

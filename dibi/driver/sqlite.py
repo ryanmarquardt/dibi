@@ -74,11 +74,11 @@ class SQLiteDriver(DbapiDriver):
         )
 
     def list_tables(self):
-        return (name for (name,) in self.execute(
+        return (name for (name,) in self.execute_ro(
             C("SELECT name FROM sqlite_master WHERE type='table'")))
 
     def list_columns(self, table):
-        cursor = self.execute(C("PRAGMA table_info({})").format(
+        cursor = self.execute_ro(C("PRAGMA table_info({})").format(
             self.identifier(table.name)))
         for _, name, v_type, notnull, default, _ in cursor:
             yield dibi.Column(
