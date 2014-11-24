@@ -58,6 +58,9 @@ C = CleanSQL
 
 
 class Driver(metaclass=ABCMeta):
+    def __init__(self):
+        self.features = set()
+
     @abstractmethod
     def handle_exception(self, error):
         """
@@ -162,6 +165,7 @@ class DbapiDriver(Driver):
         except AttributeError:
             self.identifier_quote_escape = self.identifier_quote * 2
 
+        super(DbapiDriver, self).__init__()
         self.dbapi_module = dbapi_module
         with self.catch_exception():
             self.connection = self.connect(*args, **kwargs)
