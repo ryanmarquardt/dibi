@@ -104,6 +104,7 @@ def test_drivers():
                     name=name,
                     expect='success' if expect is None else expect.__name__,
                 ))
+                parameters['debug'] = True
                 if expect is None:
                     result = test_driver(driver, parameters)
                 else:
