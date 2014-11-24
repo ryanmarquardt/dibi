@@ -73,10 +73,9 @@ def doctest_modules(*names):
 
 def get_testing_configurations(configuration, driver):
     base_parameters = configuration[driver]
-    yield (None, dict(base_parameters))
     for section in configuration.sections():
         name, colon, variant = section.partition(':')
-        if colon and name == driver:
+        if name == driver:
             variant_parameters = dict(base_parameters)
             variant_parameters.update(configuration[section])
             yield (variant, variant_parameters)
@@ -89,9 +88,9 @@ def test_drivers():
         'test_parameters.conf',
     ])
     result = OrderedDict()
-    for name, driver in dibi.driver.registry.items():
+    for name, driver in sorted(dibi.driver.registry.items()):
         try:
-            variants = list(get_testing_configurations(configuration, name))
+            variants = sorted(get_testing_configurations(configuration, name))
         except KeyError:
             logging.warning("No parameters found for {name!r}".format(
                 name=name))
