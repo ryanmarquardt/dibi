@@ -72,3 +72,18 @@ class SQLiteDriver(DbapiDriver):
             BLOB=Blob,
             TIMESTAMP=DateTime,
         )
+
+    def list_tables(self):
+        return (name for (name,) in self.execute(
+            C("SELECT name FROM sqlite_master WHERE type='table'")))
+
+    def list_columns(self, table):
+        cursor = self.execute(C("PRAGMA table_info({})").format(
+            self.identifier(table.name)))
+        for _, name, v_type, notnull, default, _ in cursor:
+            yield dibi.Column(
+                table.db, table, name,
+                self.unmap_type,
+                notnull=bool(notnull),
+                default=default,
+            )
