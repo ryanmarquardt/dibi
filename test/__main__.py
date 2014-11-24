@@ -99,7 +99,9 @@ def test_drivers():
                 expect = (getattr(dibi.error, parameters.pop('this raises'))
                           if 'this raises' in parameters else None)
                 logging.info("Expecting {expect} from {name}({})".format(
-                    parameters, name=name,
+                    ', '.join('{}={!r}'.format(*pair) for pair in
+                              sorted(parameters.items())),
+                    name=name,
                     expect='success' if expect is None else expect.__name__,
                 ))
                 if expect is None:
