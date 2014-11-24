@@ -215,7 +215,8 @@ class DbapiDriver(Driver):
         self.last_statement = statement = \
             str(C('{};').join_format(C(' '), (word for word in words if word)))
         with self.transaction():
-            return self.connection.execute(statement, values)
+            cursor = self.connection.cursor()
+            return cursor.execute(statement, values)
 
     @abstractmethod
     def map_type(self, database_type, database_size):
