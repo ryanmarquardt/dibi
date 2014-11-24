@@ -84,8 +84,10 @@ def get_testing_configurations(configuration, driver):
 
 def test_drivers():
     configuration = configparser.ConfigParser()
-    configuration.read('test_parameters.conf')
-    configuration.read('test/test_parameters.conf')
+    configuration.read([
+        'test/test_parameters.conf',
+        'test_parameters.conf',
+    ])
     result = OrderedDict()
     for name, driver in dibi.driver.registry.items():
         try:
