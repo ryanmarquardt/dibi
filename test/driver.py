@@ -70,4 +70,14 @@ class test_driver(object):
             binary_data=b'\xa8\xe2u\xf5pZ\x1c\x82R5\x01\xe7UC\x06',
             timestamp=datetime.datetime(1900, 1, 1, 12, 15, 14),
         )
-        assert sample_1_id == 1
+        with catch_failure(self):
+            assert sample_1_id == 1
+        sample_1_id = self.db.tables['table 1'].insert(
+            name='sample 2',
+            number=83,
+            value=16.937,
+            binary_data=b'3\x90&`v\x80\xec\x87\x07\xd5/\t\xc5\xac\xa3',
+            timestamp=datetime.datetime(1402, 2, 17, 4, 32, 55),
+        )
+        with catch_failure(self):
+            assert sample_1_id == 2
