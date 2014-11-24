@@ -218,12 +218,13 @@ class DbapiDriver(Driver):
                     self.rollback()
 
     def execute(self, *words, **kwargs):
-        values = list(kwargs.pop('values', ()))
+        values = kwargs.pop('values', ())
         if kwargs:
             raise TypeError("DB.execute() got an unexpected keyword argument "
                             "'{}'".format(kwargs.popitem()[0]))
         self.last_statement = statement = \
             str(C('{};').join_format(C(' '), (word for word in words if word)))
+        self.last_values = values
         with self.transaction():
             cursor = self.connection.cursor()
             return cursor.execute(statement, values)
