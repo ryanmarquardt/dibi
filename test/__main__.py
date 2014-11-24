@@ -74,11 +74,11 @@ def doctest_modules(*names):
 def get_testing_configurations(configuration, driver):
     base_parameters = configuration[driver]
     yield (None, dict(base_parameters))
-    for name in configuration.sections():
-        name, _, variant = name.partition(name)
-        if name == driver:
+    for section in configuration.sections():
+        name, colon, variant = section.partition(':')
+        if colon and name == driver:
             variant_parameters = dict(base_parameters)
-            variant_parameters.update(configuration[name])
+            variant_parameters.update(configuration[section])
             yield (variant, variant_parameters)
 
 
@@ -94,13 +94,31 @@ def test_drivers():
             logging.warning("No parameters found for {name!r}".format(
                 name=name))
         else:
-            for name, parameters in variants:
-                logging.info("Testing driver {name!r} with {}".format(
-                    parameters, name=name))
-                result = test_driver(driver, parameters)
+            for variant, parameters in variants:
+                expect = (getattr(dibi.error, parameters.pop('this raises'))
+                          if 'this raises' in parameters else None)
+                logging.info("Expecting {expect} from {name}({})".format(
+                    parameters, name=name,
+                    expect='success' if expect is None else expect.__name__,
+                ))
+                if expect is None:
+                    result = test_driver(driver, parameters)
+                else:
+                    try:
+                        test_driver(driver, parameters)
+                    except expect:
+                        pass
+                    except Exception as error:
+                        logging.error(
+                            "Got {} instead of {}".format(
+                                error.__class__.__name__, expect.__name__))
+                    logging.error("{} was not raised".format(
+                        expect.__name__))
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
+
     exit_code = 0
     failures = doctest_modules(*modules)
     exit_code = bool(failures) or exit_code
