@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
-from ..driver.common import DbapiDriver, C, register, NoSuchTableError
+from ..driver.common import (DbapiDriver, C, register, NoSuchTableError)
+from ..error import (NoSuchTableError, NoSuchDatabaseError)
 from ..datatype import Text, Integer, Float, Blob, DateTime
 
 import sqlite3
@@ -8,10 +9,22 @@ import sqlite3
 
 @register('sqlite')
 class SQLiteDriver(DbapiDriver):
-    def __init__(self, path=':memory:', debug=False):
-        super(SQLiteDriver, self).__init__(
-            sqlite3, path, sqlite3.PARSE_DECLTYPES)
+    def __init__(self, path=':memory:', create=True, debug=False):
         self.path = path
+        if path is None or path == ':memory:':
+            path = ':memory:'
+            uri = False
+        else:
+            path = path.replace('?', '%3f').replace('#', '%23')
+            while '//' in path:
+                path = path.replace('//', '/')
+            path = 'file:{}?mode=rw{}'.format(
+                path,
+                'c' if create else '',
+            )
+            uri = True
+        super(SQLiteDriver, self).__init__(
+            sqlite3, path, sqlite3.PARSE_DECLTYPES, uri=uri)
 
     identifier_quote = C('"')
 
@@ -32,6 +45,8 @@ class SQLiteDriver(DbapiDriver):
                 raise NoSuchTableError(table)
             elif message.endswith(': syntax error'):
                 raise SyntaxError((message, self.last_statement))
+            elif message == 'unable to open database file':
+                raise NoSuchDatabaseError(self.path)
         if isinstance(error, sqlite3.Error):
             raise Exception((error, self.last_statement))
 
