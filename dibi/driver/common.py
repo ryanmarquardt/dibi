@@ -178,15 +178,15 @@ class DbapiDriver(Driver):
         if self.dbapi_module.paramstyle == 'qmark':
             return (values.keys(),
                     (C("?") for key in values),
-                    values.values())
+                    list(values.values()))
         elif self.dbapi_module.paramstyle == 'format':
             return (values.keys(),
                     (C("%s") for key in values),
-                    values.values())
+                    list(values.values()))
         elif self.dbapi_module.paramstyle == 'numeric':
             return (values.keys(),
                     (C(":{}").format(C(i)) for i, key in enumerate(values)),
-                    values.values())
+                    list(values.values()))
         elif self.dbapi_module.paramstyle == 'named':
             return (values.keys(),
                     (C(":{}").format(C(key)) for key in values),
