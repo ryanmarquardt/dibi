@@ -71,22 +71,34 @@ def doctest_modules(*names):
     return failures
 
 
+def get_testing_configurations(configuration, driver):
+    base_parameters = configuration[driver]
+    yield (None, dict(base_parameters))
+    for name in configuration.sections():
+        name, _, variant = name.partition(name)
+        if name == driver:
+            variant_parameters = dict(base_parameters)
+            variant_parameters.update(configuration[name])
+            yield (variant, variant_parameters)
+
+
 def test_drivers():
     configuration = configparser.ConfigParser()
-    configuration['DEFAULT']['debug'] = '1'
     configuration.read('test_parameters.conf')
     configuration.read('test/test_parameters.conf')
     result = OrderedDict()
     for name, driver in dibi.driver.registry.items():
         try:
-            parameters = configuration[name]
+            variants = list(get_testing_configurations(configuration, name))
         except KeyError:
             logging.warning("No parameters found for {name!r}".format(
                 name=name))
         else:
-            logging.info("Testing driver {name!r} with parameters {}".format(
-                parameters, name=name))
-            result = test_driver(driver, parameters)
+            for name, parameters in variants:
+                logging.info("Testing driver {name!r} with {}".format(
+                    parameters, name=name))
+                result = test_driver(driver, parameters)
+
 
 if __name__ == '__main__':
     exit_code = 0
