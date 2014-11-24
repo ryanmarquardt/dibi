@@ -34,3 +34,4 @@ class test_driver(object):
             binary_data=b'\xa8\xe2u\xf5pZ\x1c\x82R5\x01\xe7UC\x06',
             timestamp=datetime.datetime(1900, 1, 1, 12, 15, 14),
         )
+        assert sample_1_id == 1, sample_1_id
