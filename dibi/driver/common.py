@@ -19,10 +19,10 @@ class CleanSQL(str):
     def sanitize(value):
         return value
 
-    def join_format(self, joiner, values):
+    def join_format(self, joiner, *iterators):
         if not isinstance(joiner, CleanSQL):
             raise TypeError("Joiner is not clean")
-        values = list(values)
+        values = list(value for iterator in iterators for value in iterator)
         if any(not isinstance(value, CleanSQL) for value in values):
             raise TypeError("One or more values are not clean")
         return self.__class__(
