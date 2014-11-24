@@ -91,8 +91,8 @@ class MysqlDriver(DbapiDriver):
                 'timestamp': datetime.datetime, 'double': float, 'real': float,
                 'blob': bytes}.get(name)
 
-    def list_tables_sql(self):
-        return """SHOW TABLES;"""
+    def list_tables(self):
+        return self.execute("SHOW TABLES")
 
     def list_columns(self, table):
         for name, v_type, null, key, default, extra in self.execute(
