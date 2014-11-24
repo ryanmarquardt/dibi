@@ -20,8 +20,10 @@ class MysqlDriver(DbapiDriver):
 
     """
 
-    engines = {'MyISAM', 'InnoDB', 'MERGE', 'MEMORY', 'BDB', 'EXAMPLE',
-               'FEDERATED', 'ARCHIVE', 'CSV', 'BLACKHOLE'}
+    @property
+    def engines(self):
+        return {'MyISAM', 'InnoDB', 'MERGE', 'MEMORY', 'BDB', 'EXAMPLE',
+                'FEDERATED', 'ARCHIVE', 'CSV', 'BLACKHOLE'}
 
     identifier_quote = C('`')
 
@@ -35,10 +37,11 @@ class MysqlDriver(DbapiDriver):
                 mysql, host=host, port=port, user=user,
                 password=password or '', database=database)
         self.engine = engine
+        self.debug = debug
 
     @property
     def engine(self):
-        return self.__dict__['engine']
+        return C(self.__dict__['engine'])
 
     @engine.setter
     def engine(self, new):
@@ -54,7 +57,7 @@ class MysqlDriver(DbapiDriver):
             return dict(
                 INT=C("INT"),
                 REAL=C("REAL"),
-                TEXT=C("VARCHAR({})").format(database_size),
+                TEXT=C("VARCHAR({})").format(C(int(database_size))),
                 BLOB=C("BLOB"),
                 DATETIME=C("DATETIME"),
             )[database_type]
@@ -102,19 +105,17 @@ class MysqlDriver(DbapiDriver):
                 raise Exception('Unknown column type %s' % v_type)
             yield (str(name), ut, null != 'YES', default)
 
-    def create_table_if_nexists(self, name, columns, primarykeys):
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            return self.execute(
-                "CREATE%s TABLE IF NOT EXISTS %s(%s%s) ENGINE=%s;" % (
-                    ' TEMPORARY' if self.debug else '',
-                    name,
-                    ', '.join(columns),
-                    ((', PRIMARY KEY (%s)' % ', '.join(
-                        '%s ASC' % p for p in primarykeys)) if primarykeys
-                        else ''),
-                    self.engine,
-                ))
+    def create_table(self, table, columns, force_create):
+        return self.execute(
+            C("CREATE"),
+            C("TEMPORARY") if self.debug else None,
+            C("TABLE"),
+            C("IF NOT EXISTS") if force_create else None,
+            self.identifier(table.name),
+            C("({})").join_format(C(", "), (
+                self.column_definition(column) for column in columns)),
+            C("ENGINE={}").format(self.engine)
+        )
 
     def insert_rowid(self, cursor):
         return self.connection.insert_id()
