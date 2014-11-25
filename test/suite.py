@@ -113,23 +113,20 @@ class DocstringRunner(doctest.DocTestRunner):
         doctest.DocTestRunner.__init__(self)
         self.suite = suite
 
+    def _report(self, class_, test, example):
+        self.suite.report(class_(test.name, test.lineno + example.lineno,
+                          example.source.strip(),
+                          {key: value for key, value in test.globs.items()
+                           if key in example.source}))
+
     def report_success(self, out, test, example, got):
-        # out is sys.stderr or other writable ... ignore it
-        # test
-        #   .name is the id of the test
-        # example is the current member of test.examples being run
-        #
-        # got is the printed output ... ignore it on success
-        ## SuccessResult(module, function, lineno, source, locals)
-        self.suite.report(SuccessResult(
-            test.name, test.lineno + example.lineno,
-            example.source.strip(), test.globs))
+        self._report(SuccessResult, test, example)
 
     def report_failure(self, out, test, example, got):
-        raise Exception(('failure', out, test, example, got))
+        self._report(FailureResult, test, example)
 
     def report_unexpected_exception(self, out, test, example, got):
-        raise Exception(('error', out, test, example, got))
+        self._report(ErrorResult, test, example)
 
 
 class TestAttempt(object):
