@@ -45,7 +45,8 @@ class test_driver(object):
     def __init__(self, variant, driver, parameters):
         self.db = dibi.DB(driver(**parameters))
         self.logger = logging.getLogger(variant)
-        for method in (self.create_table, self.list_tables, self.insert_rows):
+        for method in (self.create_table, self.list_tables, self.list_columns,
+                       self.insert_rows):
             with catch_failure(self):
                 method()
 
@@ -61,6 +62,9 @@ class test_driver(object):
     def list_tables(self):
         tables = list(self.db.driver.list_tables())
         assert tables == ['table 1']
+
+    def list_columns(self):
+        columns = list(self.db.driver.list_columns('table 1'))
 
     def insert_rows(self):
         sample_1_id = self.db.tables['table 1'].insert(
