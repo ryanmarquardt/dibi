@@ -65,6 +65,8 @@ class test_driver(object):
 
     def list_columns(self):
         columns = list(self.db.driver.list_columns('table 1'))
+        assert len(columns) == 5
+        # TODO: Further assertions about the nature of the returned columns
 
     def insert_rows(self):
         sample_1_id = self.db.tables['table 1'].insert(
