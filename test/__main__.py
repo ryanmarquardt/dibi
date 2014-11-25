@@ -1,22 +1,8 @@
 #!/usr/bin/env python
 
-import dibi
-from dibi import DB, Table, NoColumnsError
-from dibi.datatype import Integer, Text, Date
-
-#from collections import OrderedDict
 import configparser
-#import datetime
 import doctest
 import logging
-
-from importlib import reload, import_module
-
-from .driver import test_driver
-
-import os
-
-from .suite import TestSuite
 
 
 def get_testing_configurations(configuration, driver):
@@ -44,6 +30,12 @@ def test_drivers(suite):
             parameters['debug'] = True
             yield (('{}({})'.format(name, variant) if variant else name),
                    driver, parameters, expect)
+
+
+import dibi
+
+from .suite import TestSuite
+from .driver import test_driver
 
 
 if __name__ == '__main__':
