@@ -4,7 +4,7 @@ from .common import DbapiDriver, C, register
 from ..error import (NoSuchTableError, ConnectionError, AuthenticationError,
                      NoSuchDatabaseError)
 
-import warnings
+import datetime
 
 import mysql.connector as mysql
 
@@ -90,7 +90,7 @@ class MysqlDriver(DbapiDriver):
         name, _, size = t.partition('(')
         if name in ('int', 'tinyint'):
             return int if int((size or '0 ')[:-1]) > 1 else bool
-        return {'text': unicode, 'varchar': unicode,
+        return {'text': str, 'varchar': str,
                 'timestamp': datetime.datetime, 'double': float, 'real': float,
                 'blob': bytes}.get(name)
 
@@ -99,7 +99,7 @@ class MysqlDriver(DbapiDriver):
 
     def list_columns(self, table):
         for name, v_type, null, key, default, extra in self.execute_ro(
-                "DESCRIBE %s;" % table):
+                C("DESCRIBE"), self.identifier(table)):
             ut = self.unmap_type(v_type)
             if not ut:
                 raise Exception('Unknown column type %s' % v_type)

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import dibi
 from ..driver.common import (DbapiDriver, C, register, NoSuchTableError)
 from ..error import (NoSuchTableError, NoSuchDatabaseError)
 from ..datatype import Text, Integer, Float, Blob, DateTime
@@ -79,11 +80,10 @@ class SQLiteDriver(DbapiDriver):
 
     def list_columns(self, table):
         cursor = self.execute_ro(C("PRAGMA table_info({})").format(
-            self.identifier(table.name)))
+            self.identifier(table)))
         for _, name, v_type, notnull, default, _ in cursor:
             yield dibi.Column(
-                table.db, table, name,
-                self.unmap_type,
-                notnull=bool(notnull),
-                default=default,
+                None, table, name,
+                self.unmap_type(v_type),
+                False,
             )
