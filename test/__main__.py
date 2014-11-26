@@ -40,7 +40,6 @@ from .driver import test_driver
 
 if __name__ == '__main__':
     suite = TestSuite()
-    logging.basicConfig(level=logging.INFO)
 
     configuration = configparser.ConfigParser()
     configuration.read([
@@ -49,7 +48,8 @@ if __name__ == '__main__':
     ])
 
     for name, driver, parameters, expect in test_drivers(configuration):
-        suite.test(test_driver, (suite, driver, parameters), exception=expect, name=name)
+        suite.test(test_driver, (suite, driver, parameters), exception=expect,
+                   name=name)
 
     suite.run_package_docstrings(dibi)
 
