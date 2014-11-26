@@ -305,13 +305,13 @@ class TestSuite(object):
         ))
 
     def report_error(self, result):
-         self.logger.error('{}\n{}'.format(
+        self.logger.error('{}\n{}'.format(
             result,
             ''.join(traceback.format_exception(
                 result.exception.__class__,
                 result.exception,
                 result.exception.__traceback__,
-        )).rstrip()))
+            )).rstrip()))
 
     def run_module_docstrings(self, module):
         try:
