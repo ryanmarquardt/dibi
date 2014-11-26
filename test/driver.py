@@ -9,10 +9,10 @@ class test_driver(object):
     def __init__(self, suite, driver, parameters):
         self.suite = suite
         self.db = dibi.DB(driver(**parameters))
-        for method in (self.create_table, self.list_tables, self.list_columns,
-                       self.insert_rows):
-            with suite.catch(name=method.__name__):
-                method()
+        suite.test(self.create_table)
+        suite.test(self.list_tables)
+        suite.test(self.list_columns)
+        suite.test(self.insert_rows)
 
     def create_table(self):
         table_1 = self.db.add_table('table 1')

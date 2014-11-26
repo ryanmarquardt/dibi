@@ -1,11 +1,11 @@
 
 
-from contextlib import contextmanager
 import doctest
 from importlib import import_module
 import inspect
 import logging
 import os
+import re
 
 
 def split_path(path):
@@ -99,6 +99,61 @@ class FailureResult(TestResult):
 class SuccessResult(TestResult):
     status = 'success'
 
+    @classmethod
+    def from_current_frame(cls):
+        frame = inspect.currentframe()
+        while frame.f_code.co_filename == __file__:
+            frame = frame.f_back
+        code = frame.f_code
+        location = inspect.getmoduleinfo(code.co_filename).name
+        if code.co_name:
+            location = '.'.join((location, code.co_name))
+        source, first_line = inspect.getsourcelines(frame)
+        # Find all lines in the same block and trim indentation
+        index_lineno = frame.f_lineno - first_line
+        try:
+            index_line = source[index_lineno]
+        except IndexError:
+            return cls(
+                location=location,
+                lineno=frame.f_lineno,
+                source=''.join(source).rstrip(),
+                locals=None,
+            )
+            raise Exception(source, frame.f_lineno, first_line, len(source))
+        indentation = re.match(r"^(\s*)", index_line).group(1)
+        same_level = [i for i, line in enumerate(source)
+                      if line.startswith(indentation)]
+        begin = index_lineno
+        while begin - 1 in same_level:
+            begin -= 1
+        end = index_lineno
+        while end in same_level:
+            end += 1
+        lines = [line[len(indentation):] for line in source[begin:end]]
+        return cls(
+            location=location,
+            lineno=frame.f_lineno,
+            source=''.join(lines).rstrip(),
+            locals=None,
+        )
+
+    @classmethod
+    def from_callable(cls, function):
+        try:
+            code = function.__code__
+        except AttributeError:
+            try:
+                code = function.__call__.__code__
+            except AttributeError:
+                code = function.__init__.__code__
+        return cls(
+            location=function.__name__,
+            lineno=code.co_firstlineno,
+            source=inspect.getsource(function),
+            locals={},
+        )
+
 
 class ErrorResult(TestResult):
     status = 'error'
@@ -130,10 +185,13 @@ class DocstringRunner(doctest.DocTestRunner):
 
 
 class TestAttempt(object):
-    def __init__(self, suite, exception=None, name=None):
+    def __init__(self, suite, exception=None, name=None, function=None):
         self.suite = suite
         self.exception = exception
         self.name = name
+        if name is None and function is not None:
+            self.name = function.__name__
+        self.function = function
 
     def __enter__(self):
         if self.name:
@@ -141,20 +199,27 @@ class TestAttempt(object):
         self.suite.report_start(self)
 
     def __exit__(self, exc, error, tb):
-        try:
-            if exc is AssertionError:
-                # Failed assertion
-                result = FailureResult.from_traceback(tb)
-            elif self.exception is None:
-                # Expected success
-                result = (SuccessResult(None, None, None, None) if exc is None else
-                          ErrorResult.from_exception(error))
+        if exc is AssertionError:
+            # Failed assertion
+            result = FailureResult.from_traceback(tb)
+        elif self.exception is None:
+            # Expected success
+            if exc is None:
+                if self.function is None:
+                    result = SuccessResult.from_current_frame()
+                else:
+                    result = SuccessResult.from_callable(self.function)
             else:
-                # Expected exception
-                result = (SuccessResult(None, None, None, None) if exc is self.exception else
-                          FailureResult.did_not_raise(self.exception))
-        except Exception as metaerror:
-            logging.critical(str(metaerror))
+                result = ErrorResult.from_exception(error)
+        else:
+            # Expected exception
+            if exc is self.exception:
+                if self.function is None:
+                    result = SuccessResult.from_current_frame()
+                else:
+                    result = SuccessResult.from_callable(self.function)
+            else:
+                result = FailureResult.did_not_raise(self.exception)
         self.suite.report(result)
         if self.name:
             self.suite.pop_logger()
@@ -195,6 +260,10 @@ class TestSuite(object):
 
     def catch(self, exception=None, name=None):
         return TestAttempt(self, exception=exception, name=name)
+
+    def test(self, function, args=(), kwargs={}, exception=None, name=None):
+        with TestAttempt(self, exception, name, function):
+            function(*args, **kwargs)
 
     def __iter__(self):
         return iter(self.results)
