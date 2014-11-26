@@ -24,7 +24,7 @@ True
 1
 
 >>> orders.insert(amount=450, quantity=11, date='2000-04-10')
-2
+
 
 >>> allrows = orders.select()
 
