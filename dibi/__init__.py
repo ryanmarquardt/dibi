@@ -78,7 +78,8 @@ dibi.error.NoSuchTableError: Table 'orders' does not exist
 
 
 from .collection import Collection, OrderedCollection
-from .datatype import DataType, Integer, Float, Text, Blob, DateTime, Date
+from .datatype import (DataType, Integer, Float, Text, Blob, DateTime, Date,
+                       AutoIncrement)
 from .error import NoSuchTableError, NoColumnsError
 
 import datetime
@@ -107,6 +108,11 @@ class Selection(DbObject):
     def __repr__(self):
         return "<Selection({})>".format(", ".join(
             repr(column) for column in self.columns))
+
+    def one(self):
+        for row in self:
+            return row
+        return None
 
 
 class Selectable(DbObject):
@@ -179,11 +185,12 @@ class Filter(Selectable):
 
 
 class Column(Filter):
-    def __init__(self, db, table, name, datatype, primarykey):
+    def __init__(self, db, table, name, datatype, primarykey, autoincrement):
         self.table = table
         self.name = name
         self.datatype = datatype
         self.primarykey = primarykey
+        self.autoincrement = autoincrement
         Filter.__init__(self, db, 'ID', self)
 
     def __repr__(self):
@@ -198,9 +205,10 @@ class Table(Selectable):
         self.name = name
         Selectable.__init__(self, db, {self})
         self.columns = OrderedCollection(lambda col: col.name)
-        if primarykey:
+        self.primarykey = None
+        if primarykey is not None:
             self.primarykey = self.add_column(
-                primarykey, Integer, primarykey=True)
+                primarykey, Integer, primarykey=True, autoincrement=True)
 
     def __hash__(self):
         return hash(self.name)
@@ -211,15 +219,19 @@ class Table(Selectable):
     def __repr__(self):
         return "Table({!r})".format(self.name)
 
-    def add_column(self, name, datatype=DataType, primarykey=False):
+    def add_column(self, name, datatype=DataType, primarykey=False,
+                   autoincrement=False):
         return self.columns.add(
-            Column(self.db, self, name, datatype, primarykey),
+            Column(self.db, self, name, datatype, primarykey, autoincrement),
             replace=False)
 
     def save(self, force_create=False):
         if not self.columns:
             raise NoColumnsError(
                 "Cannot create table {!r} with no columns".format(self.name))
+        if self.__dict__.get('primarykey') is None:
+            self.primarykey = self.add_column(
+                'rowid', Integer, primarykey=True, autoincrement=True)
         self.db.driver.create_table(self, self.columns, force_create)
 
     def drop(self, ignore_absence=True):
@@ -231,6 +243,9 @@ class Table(Selectable):
 
     def __getattr__(self, key):
         return self.columns[key]
+
+    def __getitem__(self, key):
+        return (self.__dict__['primarykey'] == key).select().one()
 
 
 import dibi.driver

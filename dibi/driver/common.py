@@ -2,6 +2,7 @@
 
 from abc import ABCMeta, abstractmethod
 from contextlib import contextmanager
+import logging
 
 import dibi
 
@@ -230,7 +231,11 @@ class DbapiDriver(Driver):
             str(C('{};').join_format(C(' '), (word for word in words if word)))
         self.last_values = values
         cursor = self.connection.cursor()
-        cursor.execute(statement, values)
+        try:
+            cursor.execute(statement, values)
+        except Exception:
+            logging.error(statement)
+            raise
         return cursor
 
     @abstractmethod
@@ -273,6 +278,7 @@ class DbapiDriver(Driver):
             self.map_type(column.datatype.database_type,
                           column.datatype.database_size),
             C("PRIMARY KEY") if column.primarykey else None,
+            C("AUTO_INCREMENT") if column.autoincrement else None,
         )
 
     # Schema methods

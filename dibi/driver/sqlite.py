@@ -74,6 +74,20 @@ class SQLiteDriver(DbapiDriver):
             TIMESTAMP=DateTime,
         )
 
+    def column_definition(self, column):
+        if column.autoincrement:
+            return C(" ").join_words(
+                self.identifier(column.name),
+                C("INTEGER PRIMARY KEY ASC"),
+            )
+        return C(" ").join_words(
+            self.identifier(column.name),
+            self.map_type(column.datatype.database_type,
+                          column.datatype.database_size),
+            C("PRIMARY KEY") if column.primarykey else None,
+            C("AUTO_INCREMENT") if column.autoincrement else None,
+        )
+
     def list_tables(self):
         return (name for (name,) in self.execute_ro(
             C("SELECT name FROM sqlite_master WHERE type='table'")))
@@ -86,4 +100,5 @@ class SQLiteDriver(DbapiDriver):
                 None, table, name,
                 self.unmap_type(v_type),
                 False,
+                autoincrement=False,  # TODO: Detect rowid fields
             )

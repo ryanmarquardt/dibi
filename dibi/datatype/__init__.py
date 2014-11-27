@@ -53,3 +53,7 @@ class Float(DataType):
 class Blob(DataType):
     database_type = 'BLOB'
     database_size = 512
+
+
+class AutoIncrement(Integer):
+    database_size = 64

@@ -311,7 +311,7 @@ class TestSuite(object):
                 result.exception.__class__,
                 result.exception,
                 result.exception.__traceback__,
-            )).rstrip()))
+            )).rstrip()) if result.exception is not None else result)
 
     def run_module_docstrings(self, module):
         try:
