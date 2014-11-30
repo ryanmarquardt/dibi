@@ -16,6 +16,8 @@ class test_driver(object):
         suite.test(self.select_row_by_id)
         suite.test(self.select_equal_to_string)
         suite.test(self.select_equal_to_none)
+        suite.test(self.update_selection)
+        suite.test(self.delete_all)
 
     def create_table(self):
         table_1 = self.db.add_table('table 1')
@@ -81,3 +83,15 @@ class test_driver(object):
         assert len(rows) == 1
         name, number, value, binary_data, timestamp = rows[0]
         assert name == 'sample 3'
+
+    def update_selection(self):
+        value = self.db.tables['table 1'].value
+        assert len((value < 0).select_all()) == 1
+        (value < 0).update(value=100)
+        assert len((value < 0).select_all()) == 0
+
+    def delete_all(self):
+        table_1 = self.db.tables['table 1']
+        assert len(table_1.select_all()) > 0
+        table_1.delete()
+        assert len(table_1.select_all()) == 0
