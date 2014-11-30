@@ -34,19 +34,24 @@ def find_package_module_names(package):
                 yield '.'.join(parts)
 
 
+def format_exception(exception):
+    return ''.join(traceback.format_exception(
+        exception.__class__, exception, exception.__traceback__)).rstrip()
+
+
 class TestResult(object):
-    def __init__(self, location, lineno, source, locals, exception=None):
+    def __init__(self, location, lineno, source, locals, trace=None):
         self.location = location
         self.lineno = lineno
         self.source = source
         self.locals = locals
-        self.exception = exception
+        self.trace = trace
 
     status = 'unknown'
 
     @classmethod
-    def from_traceback(cls, traceback, exception=None):
-        tb = traceback
+    def from_traceback(cls, traceback_object, exception=None):
+        tb = traceback_object
         while tb.tb_next:
             tb = tb.tb_next
         frame = tb.tb_frame
@@ -62,7 +67,7 @@ class TestResult(object):
             source=source.strip(),
             locals={key: value for key, value in frame.f_locals.items()
                     if key in source},
-            exception=exception,
+            trace=format_exception(exception),
         )
 
     def __str__(self):
@@ -169,11 +174,12 @@ class DocstringRunner(doctest.DocTestRunner):
         doctest.DocTestRunner.__init__(self)
         self.suite = suite
 
-    def _report(self, class_, test, example):
-        self.suite.report(class_(test.name, test.lineno + example.lineno,
+    def _report(self, class_, test, example, **extra):
+        self.suite.report(class_(test.name, test.lineno + example.lineno + 1,
                           example.source.strip(),
                           {key: value for key, value in test.globs.items()
-                           if key in example.source}))
+                           if key in example.source},
+                          **extra))
 
     def report_success(self, out, test, example, got):
         self._report(SuccessResult, test, example)
@@ -182,7 +188,8 @@ class DocstringRunner(doctest.DocTestRunner):
         self._report(FailureResult, test, example)
 
     def report_unexpected_exception(self, out, test, example, got):
-        self._report(ErrorResult, test, example)
+        exc, obj, tb = got
+        self._report(ErrorResult, test, example, trace=format_exception(obj))
 
 
 class TestAttempt(object):
@@ -305,13 +312,7 @@ class TestSuite(object):
         ))
 
     def report_error(self, result):
-        self.logger.error('{}\n{}'.format(
-            result,
-            ''.join(traceback.format_exception(
-                result.exception.__class__,
-                result.exception,
-                result.exception.__traceback__,
-            )).rstrip()) if result.exception is not None else result)
+        self.logger.error('{}\n{}'.format(result, result.trace or ''))
 
     def run_module_docstrings(self, module):
         try:
