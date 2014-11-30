@@ -1,5 +1,5 @@
 
-from .common import DbapiDriver, C, register
+from .common import DbapiDriver, C, register, operator
 
 from ..error import (NoSuchTableError, ConnectionError, AuthenticationError,
                      NoSuchDatabaseError)
@@ -117,5 +117,5 @@ class MysqlDriver(DbapiDriver):
             C("ENGINE={}").format(self.engine)
         )
 
-    op_SUM = staticmethod(lambda a: 'sum(%s)' % a)
-    op_CONCATENATE = staticmethod(lambda a, b: 'CONCAT(%s,%s)' % (a, b))
+    class operators(DbapiDriver.operators):
+        CONCATENATE = operator('CONCAT({},{})')

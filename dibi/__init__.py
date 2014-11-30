@@ -200,6 +200,36 @@ class Filter(Selectable):
     def __le__(self, other):
         return Filter(self.db, 'LESSEQUAL', self, other)
 
+    def __add__(self, other):
+        return Filter(self.db, 'ADD', self, other)
+
+    def __radd__(self, other):
+        return Filter(self.db, 'ADD', other, self)
+
+    def sum(self):
+        return Filter(self.db, 'SUM', self)
+
+    def __sub__(self, other):
+        return Filter(self.db, 'SUBTRACT', self, other)
+
+    def __rsub__(self, other):
+        return Filter(self.db, 'SUBTRACT', other, self)
+
+    def __mul__(self, other):
+        return Filter(self.db, 'MULTIPLY', self, other)
+
+    def __rmul__(self, other):
+        return Filter(self.db, 'MULTIPLY', other, self)
+
+    def __div__(self, other):
+        return Filter(self.db, 'DIVIDE', self, other)
+
+    def __rdiv__(self, other):
+        return Filter(self.db, 'DIVIDE', other, self)
+
+    def __neg__(self):
+        return Filter(self.db, 'NEGATIVE', self)
+
 
 class Column(Filter):
     def __init__(self, db, table, name, datatype, primarykey, autoincrement,

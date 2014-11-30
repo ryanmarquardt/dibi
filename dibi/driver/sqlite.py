@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
 import dibi
-from ..driver.common import (DbapiDriver, C, register, NoSuchTableError)
+from ..driver.common import (DbapiDriver, C, register, NoSuchTableError,
+                             operator)
 from ..error import (NoSuchTableError, NoSuchDatabaseError)
 from ..datatype import Text, Integer, Float, Blob, DateTime
 
@@ -102,3 +103,6 @@ class SQLiteDriver(DbapiDriver):
                 False,
                 autoincrement=False,  # TODO: Detect rowid fields
             )
+
+    class operators(DbapiDriver.operators):
+        SUM = operator("total({})")

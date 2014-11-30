@@ -261,8 +261,8 @@ class DbapiDriver(Driver):
             return C("{}.{}").format(self.identifier(value.table.name),
                                      self.identifier(value.name))
         elif isinstance(value, dibi.Filter):
-            return self.operators.__dict__[value.operator](
-                *(self.expression(arg) for arg in value.arguments))
+            operator = getattr(self.operators, value.operator)
+            return operator(*(self.expression(arg) for arg in value.arguments))
         else:
             return self.literal(value)
 
@@ -362,9 +362,14 @@ class DbapiDriver(Driver):
         )
 
     class operators:
+
+        ## Logical operators
+
         AND = operator("({} AND {})")
         OR = operator("({} OR {})")
         NOT = operator("(NOT {})")
+
+        ## Numerical comparisons
 
         def EQUAL(a, b):
             """
@@ -394,6 +399,15 @@ class DbapiDriver(Driver):
         GREATEREQUAL = operator("({} >= {})")
         LESSTHAN = operator("({} < {})")
         LESSEQUAL = operator("({} <= {})")
+
+        # Mathematical operators
+
+        ADD = operator("({} + {})")
+        SUBTRACT = operator("({} - {})")
+        MULTIPLY = operator("({} * {})")
+        DIVIDE = operator("({} / {})")
+        NEGATIVE = operator("(-{})")
+        SUM = operator("sum({})")
 
 
 registry = dict()
