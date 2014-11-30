@@ -14,6 +14,8 @@ class test_driver(object):
         suite.test(self.list_columns)
         suite.test(self.insert_rows)
         suite.test(self.select_row_by_id)
+        suite.test(self.select_equal_to_string)
+        suite.test(self.select_equal_to_none)
 
     def create_table(self):
         table_1 = self.db.add_table('table 1')
@@ -43,7 +45,7 @@ class test_driver(object):
         )
         with self.suite.catch():
             assert sample_1_id == 1
-        sample_1_id = self.db.tables['table 1'].insert(
+        sample_2_id = self.db.tables['table 1'].insert(
             name='sample 2',
             number=83,
             value=16.937,
@@ -51,7 +53,30 @@ class test_driver(object):
             timestamp=datetime.datetime(1402, 2, 17, 4, 32, 55),
         )
         with self.suite.catch():
-            assert sample_1_id == 2
+            assert sample_2_id == 2
+        sample_3_id = self.db.tables['table 1'].insert(
+            name='sample 3',
+            number=6,
+            value=2,
+            binary_data=b'\xf2\x15\xdb\xf3\nN\x91\xa0\xf0\xa3}\x7fWPE',
+            timestamp=None,
+        )
+        with self.suite.catch():
+            assert sample_3_id == 3
 
     def select_row_by_id(self):
         assert self.db.tables['table 1'][1] is not None
+
+    def select_equal_to_string(self):
+        table_1 = self.db.tables['table 1']
+        for row in (table_1.columns['name'] == 'sample 2').select():
+            name, number, value, binary_data, timestamp = row
+            assert number == 83
+
+    def select_equal_to_none(self):
+        table_1 = self.db.tables['table 1']
+        null = None
+        row = (table_1.columns['timestamp'] == null).select().one()
+        assert row is not None
+        name, number, value, binary_data, timestamp = row
+        assert name == 'sample 3'

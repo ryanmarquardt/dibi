@@ -362,7 +362,18 @@ class DbapiDriver(Driver):
         )
 
     class operators:
-        EQUAL = operator("({}={})")
+        def EQUAL(a, b):
+            """
+
+            >>> print(DbapiDriver.operators.EQUAL(1, 2))
+            (1=2)
+
+            >>> print(DbapiDriver.operators.EQUAL(1, 'NULL'))
+            (1 IS NULL)
+            """
+            return (C("({} IS {})".format(a, b)) if 'NULL' in (a, b)
+                    else C("({}={})".format(a, b)))
+
         AND = operator("({} AND {})")
 
 
