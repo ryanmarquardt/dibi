@@ -49,7 +49,7 @@ $1.00 ; 2 ; 2000-01-01
 >>> print(orders.db.driver.last_statement)
 SELECT "orders"."quantity" FROM "orders" WHERE ("orders"."amount"=100);
 
->>> len(orders.select())
+>>> len(orders.select_all())
 2
 
 >>> orders.update(quantity=5)
@@ -61,7 +61,7 @@ $4.50 ; 5 ; 2000-04-10
 
 >>> orders.delete()
 
->>> len(orders.select())
+>>> len(orders.select_all())
 0
 
 >>> orders.drop()
@@ -102,10 +102,6 @@ class Selection(DbObject):
         for row in self.cursor:
             yield row
 
-    def __len__(self):
-        # TODO: Refactor this DBAPI-specific method
-        return len(self.cursor.fetchall())
-
     def __repr__(self):
         return "<Selection({})>".format(", ".join(
             repr(column) for column in self.columns if not column.implicit))
@@ -141,6 +137,9 @@ class Selectable(DbObject):
             self if isinstance(self, Filter) else None,
             distinct,
         )
+
+    def select_all(self, *columns, **kwargs):
+        return list(self.select(*columns, **kwargs))
 
     def update(self, **values):
         if len(self.tables) != 1:
@@ -200,6 +199,7 @@ class Filter(Selectable):
 
     def __le__(self, other):
         return Filter(self.db, 'LESSEQUAL', self, other)
+
 
 class Column(Filter):
     def __init__(self, db, table, name, datatype, primarykey, autoincrement,
