@@ -407,7 +407,17 @@ class DbapiDriver(Driver):
         MULTIPLY = operator("({} * {})")
         DIVIDE = operator("({} / {})")
         NEGATIVE = operator("(-{})")
+        MODULO = operator("{} % {}")
+        LEFTSHIFT = operator("({} << {})")
+        RIGHTSHIFT = operator("({} >> {})")
+
+        # Aggregate functions
+
         SUM = operator("sum({})")
+        AVERAGE = operator("avg({})")
+        MAXIMUM = operator("max({})")
+        MINIMUM = operator("min({})")
+        COUNT = operator("count({})")
 
 
 registry = dict()
