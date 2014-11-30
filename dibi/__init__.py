@@ -160,6 +160,20 @@ class Selectable(DbObject):
         raise NotImplementedError
 
 
+def operator(identifier, order=2, reverse=False):
+    def operation(*arguments):
+        if len(arguments) != order:
+            raise TypeError("Expected {} arguments, got {}".format(
+                order, len(arguments)))
+        return Filter(arguments[0].db, identifier, *(
+            reversed(arguments) if reverse else arguments))
+    return operation
+
+
+def operator_pair(identifier):
+    return (operator(identifier), operator(identifier, reverse=True))
+
+
 class Filter(Selectable):
     def __init__(self, db, operator, *arguments):
         self.operator = operator
@@ -173,32 +187,22 @@ class Filter(Selectable):
             ", ".join(repr(a) for a in self.arguments),
         )
 
-    def __and__(self, other):
-        return Filter(self.db, 'AND', self, other)
+    # Logical operators
 
-    def __or__(self, other):
-        return Filter(self.db, 'OR', self, other)
+    __and__ = operator('AND')
+    __or__ = operator('OR')
+    __invert__ = operator('NOT', order=1)
 
-    def __not__(self):
-        return Filter(self.db, 'NOT', self)
+    # Comparisons
 
-    def __eq__(self, other):
-        return Filter(self.db, 'EQUAL', self, other)
+    __eq__ = operator('EQUAL')
+    __ne__ = operator('NOTEQUAL')
+    __gt__ = operator('GREATERTHAN')
+    __ge__ = operator('GREATEREQUAL')
+    __lt__ = operator('LESSTHAN')
+    __le__ = operator('LESSEQUAL')
 
-    def __ne__(self, other):
-        return Filter(self.db, 'NOTEQUAL', self, other)
-
-    def __gt__(self, other):
-        return Filter(self.db, 'GREATERTHAN', self, other)
-
-    def __ge__(self, other):
-        return Filter(self.db, 'GREATEREQUAL', self, other)
-
-    def __lt__(self, other):
-        return Filter(self.db, 'LESSTHAN', self, other)
-
-    def __le__(self, other):
-        return Filter(self.db, 'LESSEQUAL', self, other)
+    # Mathematical operators
 
     def __add__(self, other):
         return Filter(self.db, 'ADD', self, other)
@@ -206,29 +210,22 @@ class Filter(Selectable):
     def __radd__(self, other):
         return Filter(self.db, 'ADD', other, self)
 
-    def sum(self):
-        return Filter(self.db, 'SUM', self)
+    __neg__ = operator('NEGATIVE', order=1)
+    __sub__, __rsub__ = operator_pair('SUBTRACT')
+    __mul__, __rmul__ = operator_pair('MULTIPLY')
+    __truediv__, __rtruediv__ = operator_pair('DIVIDE')
+    __floordiv__, __rfloordiv__ = operator_pair('DIVIDE')
+    __mod__, __rmod__ = operator_pair('MODULO')
+    __lshift__, __rlshift__ = operator_pair('LEFTSHIFT')
+    __rshift__, __rrshift__ = operator_pair('RIGHTSHIFT')
 
-    def __sub__(self, other):
-        return Filter(self.db, 'SUBTRACT', self, other)
+    # Aggregate functions
 
-    def __rsub__(self, other):
-        return Filter(self.db, 'SUBTRACT', other, self)
-
-    def __mul__(self, other):
-        return Filter(self.db, 'MULTIPLY', self, other)
-
-    def __rmul__(self, other):
-        return Filter(self.db, 'MULTIPLY', other, self)
-
-    def __div__(self, other):
-        return Filter(self.db, 'DIVIDE', self, other)
-
-    def __rdiv__(self, other):
-        return Filter(self.db, 'DIVIDE', other, self)
-
-    def __neg__(self):
-        return Filter(self.db, 'NEGATIVE', self)
+    sum = operator('SUM', order=1)
+    average = operator('AVERAGE', order=1)
+    max = operator('MAXIMUM', order=1)
+    min = operator('MINIMUM', order=1)
+    count = operator('COUNT', order=1)
 
 
 class Column(Filter):
