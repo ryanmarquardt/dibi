@@ -15,8 +15,7 @@ TESTPYTHON=PYTHONPATH=$(PWD)/build/lib $(PYTHON)
 all: build
 
 test: build
-	find $(NAME) -name '*.py' -exec pep8 --show-source '{}' \;
-	find test -name '*.py' -exec pep8 --show-source '{}' \;
+	find -name '*.py' -exec pep8 --show-source '{}' \;
 	$(TESTPYTHON) -m test
 
 build: $(SRCFILES)
