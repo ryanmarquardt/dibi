@@ -94,7 +94,7 @@ class SQLiteDriver(DbapiDriver):
 
     def list_columns(self, table):
         cursor = self.execute_ro(C("PRAGMA table_info({})").format(
-            self.identifier(table)))
+            self.identifier(table.name)))
         for _, name, v_type, notnull, default, _ in cursor:
             yield dibi.Column(
                 None, table, name,
