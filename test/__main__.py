@@ -25,8 +25,16 @@ def get_driver_variants(configuration, base):
 def test_drivers(suite):
     for name, driver in sorted(dibi.driver.registry.items()):
         for variant, parameters in get_driver_variants(configuration, name):
-            expect = (getattr(dibi.error, parameters.pop('this raises'))
-                      if 'this raises' in parameters else None)
+            this_raises = parameters.pop('this raises', None)
+            if this_raises:
+                expect = getattr(dibi.error, this_raises, None)
+                if expect is None:
+                    expect = getattr(__builtins__, this_raises)
+                if not issubclass(expect, Exception):
+                    raise ValueError("Unable to find error {}".format(
+                        this_raises))
+            else:
+                expect = None
             parameters['debug'] = True
             yield (('{}({})'.format(name, variant) if variant else name),
                    driver, parameters, expect)
