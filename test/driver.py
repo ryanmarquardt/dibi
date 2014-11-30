@@ -69,14 +69,15 @@ class test_driver(object):
 
     def select_equal_to_string(self):
         table_1 = self.db.tables['table 1']
-        for row in (table_1.columns['name'] == 'sample 2').select():
-            name, number, value, binary_data, timestamp = row
-            assert number == 83
+        rows = list((table_1.columns['name'] == 'sample 2').select())
+        assert len(rows) == 1
+        name, number, value, binary_data, timestamp = rows[0]
+        assert number == 83
 
     def select_equal_to_none(self):
         table_1 = self.db.tables['table 1']
-        null = None
-        row = (table_1.columns['timestamp'] == null).select().one()
-        assert row is not None
-        name, number, value, binary_data, timestamp = row
+        null = None  # Pep8 complains, even though this is what we intend
+        rows = list((table_1.columns['timestamp'] == null).select())
+        assert len(rows) == 1
+        name, number, value, binary_data, timestamp = rows[0]
         assert name == 'sample 3'
