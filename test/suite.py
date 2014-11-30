@@ -71,10 +71,11 @@ class TestResult(object):
         )
 
     def __str__(self):
-        return '{status} at line {lineno}'.format(
+        return '{status} at line {lineno}\n{trace}'.format(
             status=self.status.title(),
             lineno=self.lineno,
             source=self.source,
+            trace=self.trace,
         )
 
 
@@ -185,7 +186,9 @@ class DocstringRunner(doctest.DocTestRunner):
         self._report(SuccessResult, test, example)
 
     def report_failure(self, out, test, example, got):
-        self._report(FailureResult, test, example)
+        self._report(FailureResult, test, example,
+                     trace="Expected: {}\nGot: {}".format(
+                         example.want.rstrip(), got.rstrip()))
 
     def report_unexpected_exception(self, out, test, example, got):
         exc, obj, tb = got
