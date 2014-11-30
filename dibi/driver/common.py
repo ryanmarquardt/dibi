@@ -384,7 +384,7 @@ class DbapiDriver(Driver):
             >>> print(DbapiDriver.operators.NOTEQUAL(1, 2))
             (1!=2)
 
-            >>> print(DbapiDriver.operators.EQUAL(1, 'NULL'))
+            >>> print(DbapiDriver.operators.NOTEQUAL(1, 'NULL'))
             (1 IS NOT NULL)
             """
             return (C("({} IS NOT {})".format(a, b)) if 'NULL' in (a, b)
