@@ -234,7 +234,6 @@ class DbapiDriver(Driver):
         try:
             cursor.execute(statement, values)
         except Exception:
-            logging.error(statement)
             raise
         return cursor
 

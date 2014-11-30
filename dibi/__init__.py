@@ -107,7 +107,7 @@ class Selection(DbObject):
 
     def __repr__(self):
         return "<Selection({})>".format(", ".join(
-            repr(column) for column in self.columns))
+            repr(column) for column in self.columns if not column.implicit))
 
     def one(self):
         for row in self:
@@ -132,7 +132,9 @@ class Selectable(DbObject):
         if not columns:
             columns = []
             for table in self.tables:
-                columns.extend(table.columns)
+                for column in table.columns:
+                    if not column.implicit:
+                        columns.append(column)
         return Selection(
             self.db, columns, self.tables,
             self if isinstance(self, Filter) else None,
@@ -185,12 +187,14 @@ class Filter(Selectable):
 
 
 class Column(Filter):
-    def __init__(self, db, table, name, datatype, primarykey, autoincrement):
+    def __init__(self, db, table, name, datatype, primarykey, autoincrement,
+                 implicit=False):
         self.table = table
         self.name = name
         self.datatype = datatype
         self.primarykey = primarykey
         self.autoincrement = autoincrement
+        self.implicit = implicit
         Filter.__init__(self, db, 'ID', self)
 
     def __repr__(self):
@@ -229,9 +233,12 @@ class Table(Selectable):
         if not self.columns:
             raise NoColumnsError(
                 "Cannot create table {!r} with no columns".format(self.name))
+        # Since no primarykey column was specified, create an implicit
+        #  autoincrement column
         if self.__dict__.get('primarykey') is None:
             self.primarykey = self.add_column(
-                'rowid', Integer, primarykey=True, autoincrement=True)
+                '__id__', Integer, primarykey=True, autoincrement=True)
+            self.primarykey.implicit = True
         self.db.driver.create_table(self, self.columns, force_create)
 
     def drop(self, ignore_absence=True):
