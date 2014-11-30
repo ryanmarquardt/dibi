@@ -67,7 +67,7 @@ class TestResult(object):
             source=source.strip(),
             locals={key: value for key, value in frame.f_locals.items()
                     if key in source},
-            trace=format_exception(exception),
+            trace=None if exception is None else format_exception(exception),
         )
 
     def __str__(self):
