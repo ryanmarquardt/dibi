@@ -362,6 +362,10 @@ class DbapiDriver(Driver):
         )
 
     class operators:
+        AND = operator("({} AND {})")
+        OR = operator("({} OR {})")
+        NOT = operator("(NOT {})")
+
         def EQUAL(a, b):
             """
 
@@ -374,7 +378,22 @@ class DbapiDriver(Driver):
             return (C("({} IS {})".format(a, b)) if 'NULL' in (a, b)
                     else C("({}={})".format(a, b)))
 
-        AND = operator("({} AND {})")
+        def NOTEQUAL(a, b):
+            """
+
+            >>> print(DbapiDriver.operators.NOTEQUAL(1, 2))
+            (1!=2)
+
+            >>> print(DbapiDriver.operators.EQUAL(1, 'NULL'))
+            (1 IS NOT NULL)
+            """
+            return (C("({} IS NOT {})".format(a, b)) if 'NULL' in (a, b)
+                    else C("({}!={})".format(a, b)))
+
+        GREATERTHAN = operator("({} > {})")
+        GREATEREQUAL = operator("({} >= {})")
+        LESSTHAN = operator("({} < {})")
+        LESSEQUAL = operator("({} <= {})")
 
 
 registry = dict()

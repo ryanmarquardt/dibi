@@ -103,6 +103,7 @@ class Selection(DbObject):
             yield row
 
     def __len__(self):
+        # TODO: Refactor this DBAPI-specific method
         return len(self.cursor.fetchall())
 
     def __repr__(self):
@@ -185,6 +186,20 @@ class Filter(Selectable):
     def __eq__(self, other):
         return Filter(self.db, 'EQUAL', self, other)
 
+    def __ne__(self, other):
+        return Filter(self.db, 'NOTEQUAL', self, other)
+
+    def __gt__(self, other):
+        return Filter(self.db, 'GREATERTHAN', self, other)
+
+    def __ge__(self, other):
+        return Filter(self.db, 'GREATEREQUAL', self, other)
+
+    def __lt__(self, other):
+        return Filter(self.db, 'LESSTHAN', self, other)
+
+    def __le__(self, other):
+        return Filter(self.db, 'LESSEQUAL', self, other)
 
 class Column(Filter):
     def __init__(self, db, table, name, datatype, primarykey, autoincrement,
