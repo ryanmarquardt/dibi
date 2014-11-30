@@ -445,7 +445,7 @@ class DbapiDriver(Driver):
         MULTIPLY = operator("({} * {})")
         DIVIDE = operator("({} / {})")
         NEGATIVE = operator("(-{})")
-        MODULO = operator("{} % {}")
+        MODULO = operator("({} % {})")
         LEFTSHIFT = operator("({} << {})")
         RIGHTSHIFT = operator("({} >> {})")
 
