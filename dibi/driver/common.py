@@ -87,19 +87,12 @@ class Driver(metaclass=ABCMeta):
         """
         return
 
-    # Schema methods
+    # Table schema methods
 
     @abstractmethod
     def create_table(self, name, columns, force_create):
         """
         Add a table to the database schema.
-        """
-        return
-
-    @abstractmethod
-    def drop_table(self, name, ignore_absence):
-        """
-        Remove a table and all of its data from the database schema.
         """
         return
 
@@ -110,12 +103,57 @@ class Driver(metaclass=ABCMeta):
         """
         return
 
+    def rename_table(self, name, new_name):
+        """
+        Change the operational name of a table.
+
+        This method is an optional extension. It should be implemented if
+        possible, but its absence does not prevent normal operation.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def drop_table(self, name, ignore_absence):
+        """
+        Remove a table and all of its data from the database schema.
+        """
+        return
+
+    # Column schema methods
+
+    def add_column(self, table_name, column):
+        """
+        Add a column to a previously defined table.
+
+        This method is an optional extension. It should be implemented if
+        possible, but its absence does not prevent normal operation.
+        """
+        raise NotImplementedError
+
     @abstractmethod
     def list_columns(self, table):
         """
         Returns a list of Columns in table.
         """
         return
+
+    def rename_column(self, table_name, column_name, new_name):
+        """
+        Change the operational name of a column.
+
+        This method is an optional extension. It should be implemented if
+        possible, but its absence does not prevent normal operation.
+        """
+        raise NotImplementedError
+
+    def drop_column(self, table_name, column_name):
+        """
+        Remove a column from an existing table.
+
+        This method is an optional extension. It should be implemented if
+        possible, but its absence does not prevent normal operation.
+        """
+        raise NotImplementedError
 
     # Row/object methods
 
