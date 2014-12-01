@@ -151,8 +151,15 @@ class TestResult(object):
         return cls(Failure, info, expected, actual)
 
     @classmethod
-    def failed_to_raise(cls, exception):
-        return cls(Failure, Context.from_current_frame(), exception, None)
+    def trace_current_frame(cls, status, expected, actual=None):
+        frame = inspect.currentframe()
+        while frame.f_code.co_filename == __file__:
+            frame = frame.f_back
+        return cls(status, Context.from_frame(frame), expected, actual)
+
+    @classmethod
+    def failed_to_raise(cls, exception, actual):
+        return cls.trace_current_frame(Failure, exception, actual)
 
     @classmethod
     def error_from_exception(cls, exception):
@@ -162,10 +169,7 @@ class TestResult(object):
     @classmethod
     def success(cls, expected, function=None):
         if function is None:
-            frame = inspect.currentframe()
-            while frame.f_code.co_filename == __file__:
-                frame = frame.f_back
-            return cls(Success, Context.from_frame(frame), expected, None)
+            return cls.trace_current_frame(Success, expected, None)
         else:
             try:
                 code = function.__code__
@@ -199,7 +203,7 @@ class TestAttempt(object):
             result = TestResult.failed_assertion(error, tb)
         elif self.exception is not None:
             # Failed to raise expected exception
-            result = TestResult.failed_to_raise(self.exception)
+            result = TestResult.failed_to_raise(self.exception, error)
         else:
             # Unexpected error
             result = TestResult.error_from_exception(error)
