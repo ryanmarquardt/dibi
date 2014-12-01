@@ -53,18 +53,13 @@ class SQLiteDriver(DbapiDriver):
             raise Exception((error, self.last_statement))
 
     def map_type(self, database_type, database_size):
-        try:
-            return dict(
-                INT=C("INT"),
-                REAL=C("REAL"),
-                TEXT=C("TEXT"),
-                BLOB=C("BLOB"),
-                DATETIME=C("TIMESTAMP"),
-            )[database_type]
-        except KeyError:
-            raise ValueError(
-                "datatype {!r}({}) did not produce a valid SQLite type".format(
-                    database_type, database_size))
+        return dict(
+            INT=C("INT"),
+            REAL=C("REAL"),
+            TEXT=C("TEXT"),
+            BLOB=C("BLOB"),
+            DATETIME=C("TIMESTAMP"),
+        )
 
     def unmap_type(self, database_type):
         return dict(

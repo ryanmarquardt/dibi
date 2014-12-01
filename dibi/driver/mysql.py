@@ -53,18 +53,13 @@ class MysqlDriver(DbapiDriver):
         self.__dict__['engine'] = new
 
     def map_type(self, database_type, database_size):
-        try:
-            return dict(
-                INT=C("INT"),
-                REAL=C("REAL"),
-                TEXT=C("VARCHAR({})").format(C(int(database_size))),
-                BLOB=C("BLOB"),
-                DATETIME=C("DATETIME"),
-            )[database_type]
-        except KeyError:
-            raise ValueError(
-                "datatype {!r}({}) did not produce a valid MySQL type".format(
-                    database_type, database_size))
+        return dict(
+            INT=C("INT"),
+            REAL=C("REAL"),
+            TEXT=C("VARCHAR({})").format(C(int(database_size))),
+            BLOB=C("BLOB"),
+            DATETIME=C("DATETIME"),
+        )
 
     def handle_exception(self, error):
         if isinstance(error, mysql.errors.InterfaceError):
