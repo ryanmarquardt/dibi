@@ -80,7 +80,7 @@ dibi.error.NoSuchTableError: Table 'orders' does not exist
 from .collection import Collection, OrderedCollection
 from .datatype import (DataType, Integer, Float, Text, Blob, DateTime, Date,
                        AutoIncrement)
-from .error import NoSuchTableError, NoColumnsError
+from .error import NoSuchTableError, NoColumnsError, TableAlreadyExists
 
 import datetime
 import sqlite3
@@ -348,6 +348,8 @@ class DB(object):
         return hash(self.driver)
 
     def add_table(self, name, primarykey=None):
+        if name in self.tables:
+            raise TableAlreadyExists(name)
         return self.tables.add(Table(self, name, primarykey=primarykey))
 
     def __repr__(self):

@@ -9,10 +9,18 @@ class test_driver(object):
     def __init__(self, suite, driver, parameters):
         self.suite = suite
         self.db = dibi.DB(driver(**parameters))
+        for name in ['table 1', 'table 2', 'missing table']:
+            table = self.db.add_table(name)
+            table.drop()
 
     def __tests__(self, suite):
         suite.test(self.create_table)
         suite.test(self.create_table_string_pk)
+        try:
+            self.db.tables['missing table'].drop()
+        except KeyError:
+            pass
+        suite.test(self.create_table_already_exists)
         suite.test(self.list_tables)
         suite.test(self.list_columns)
         suite.test(self.insert_rows)
@@ -32,6 +40,22 @@ class test_driver(object):
         table_1.add_column('timestamp', dibi.datatype.DateTime)
         table_1.save()
         assert 'table 1' in set(self.db.driver.list_tables())
+
+    def create_table_already_exists(self):
+        table = self.db.add_table('missing table')
+        table.add_column('name', dibi.datatype.Text)
+        table.save()
+        with self.suite.catch(dibi.error.TableAlreadyExists):
+            table_x = self.db.add_table('missing table')
+            table_x.add_column('name', dibi.datatype.Text)
+            table_x.save()
+        with self.suite.catch(dibi.error.TableAlreadyExists):
+            del self.db.tables['missing table']
+            # Dibi will not be aware of this table, though it does exist
+            table_y = self.db.add_table('missing table')
+            table_y.add_column('name', dibi.datatype.Text)
+            table_y.save()
+        table.drop()
 
     def create_table_string_pk(self):
         table_2 = self.db.add_table('table 2')
