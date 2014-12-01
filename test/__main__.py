@@ -1,8 +1,12 @@
 #!/usr/bin/env python
 
 import configparser
+import dibi
 import doctest
 import logging
+
+from .suite import TestSuite, Success, Failure, Error, Unsuccessful
+from .driver import test_driver
 
 
 def get_testing_configurations(configuration, driver):
@@ -40,14 +44,46 @@ def test_drivers(suite):
                    driver, parameters, expect)
 
 
-import dibi
+class DoctestFormatSuite(TestSuite):
+    def report_summary(self, results):
+        print('*'*70)
+        print("""Results from {attempts} attempted test cases:
+{failures} failures
+{errors} errors
+{successes} successes""".format(**results))
 
-from .suite import TestSuite
-from .driver import test_driver
+    def report_failure(self, result):
+        print('*'*70)
+        print('Result in', result.attempt.name)
+        print('File "{file}", line {line}, in {name}'.format(
+            **vars(result)))
+        print('Failed:'.format(status=result.status))
+        if result.source_line.startswith('assert'):
+            print('   ', result.source_line)
+        else:
+            for line in result.source.split('\n'):
+                print('   ', line)
+        if result.expected is not None:
+            print('Expected:\n   ', result.expected)
+        print('Got:\n   ', result.actual)
+
+    def report_error(self, result):
+        print('*'*70)
+        print('File "{file}", line {line}, in {name}'.format(
+            **vars(result)))
+        print('Unexpected Error:'.format(status=result.status))
+        if result.source_line.startswith('assert'):
+            print('   ', result.source_line)
+        else:
+            for line in result.source.split('\n'):
+                print('   ', line)
+        if result.expected is not None:
+            print('Expected:\n   ', result.expected)
+        print('Got:\n   ', result.actual)
 
 
 if __name__ == '__main__':
-    suite = TestSuite()
+    suite = DoctestFormatSuite()
 
     configuration = configparser.ConfigParser()
     configuration.read([
@@ -56,9 +92,12 @@ if __name__ == '__main__':
     ])
 
     for name, driver, parameters, expect in test_drivers(configuration):
-        suite.test(test_driver, (suite, driver, parameters), exception=expect,
-                   name=name)
+        attempt = suite.get_child(name).test(
+            test_driver, (suite, driver, parameters),
+            exception=expect, name=name)
 
     suite.run_package_docstrings(dibi)
+
+    suite.summary()
 
     suite.exit()

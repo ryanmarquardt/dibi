@@ -1,11 +1,13 @@
 
 
 import doctest
+from enum import Enum
 from importlib import import_module
+from importlib.util import spec_from_file_location
 import inspect
-import logging
 import os
 import re
+import sys
 import traceback
 
 
@@ -39,95 +41,63 @@ def format_exception(exception):
         exception.__class__, exception, exception.__traceback__)).rstrip()
 
 
-class TestResult(object):
-    def __init__(self, location, lineno, source, locals, trace=None):
-        self.location = location
-        self.lineno = lineno
-        self.source = source
-        self.locals = locals
-        self.trace = trace
-
-    status = 'unknown'
+class Context(object):
+    def __init__(self, file, line, module, name, source_block,
+                 source_line=None):
+        self.file = file
+        self.line = line
+        self.module = module
+        self.name = name
+        self.source_line = source_line
+        self.source_block = source_block
 
     @classmethod
-    def from_traceback(cls, traceback_object, exception=None):
-        tb = traceback_object
+    def module_from_code(cls, code):
+        for module in sys.modules.values():
+            if getattr(module, '__file__', None) == code.co_filename:
+                return module
+        else:
+            return None
+
+    @classmethod
+    def from_code(cls, code, line=None):
+        line = line or code.co_firstlineno
+        try:
+            source_line, source_block = cls.get_source_lines(code, line)
+        except IndexError:
+            source_line, source_block = None, None
+        self = cls(
+            file=code.co_filename,
+            module=cls.module_from_code(code).__name__,
+            line=line or code.co_firstlineno,
+            name=code.co_name,
+            source_block=source_block,
+            source_line=source_line,
+        )
+        self.code = code
+        return self
+
+    @classmethod
+    def from_frame(cls, frame):
+        self = cls.from_code(frame.f_code, frame.f_lineno)
+        self.frame = frame
+        self.locals = frame.f_locals
+        return self
+
+    @classmethod
+    def from_traceback(cls, tb):
         while tb.tb_next:
             tb = tb.tb_next
-        frame = tb.tb_frame
-        code = frame.f_code
-        source, first_line = inspect.getsourcelines(tb)
-        source = source[frame.f_lineno - first_line]
-        location = inspect.getmoduleinfo(code.co_filename).name
-        if code.co_name:
-            location = '.'.join((location, code.co_name))
-        return cls(
-            location=location,
-            lineno=frame.f_lineno,
-            source=source.strip(),
-            locals={key: value for key, value in frame.f_locals.items()
-                    if key in source},
-            trace=None if exception is None else format_exception(exception),
-        )
-
-    def __str__(self):
-        return '{status} at line {lineno}\n{trace}'.format(
-            status=self.status.title(),
-            lineno=self.lineno,
-            source=self.source,
-            trace=self.trace,
-        )
-
-
-class FailureResult(TestResult):
-
-    status = 'failure'
+        self = cls.from_frame(tb.tb_frame)
+        self.traceback = tb
+        return self
 
     @classmethod
-    def from_assertion(cls, assertion):
-        return cls.from_traceback(assertion.__traceback__)
-
-    @classmethod
-    def did_not_raise(cls, exception):
-        return cls(
-            location=None,
-            lineno='???',
-            source='???',
-            locals={},
-            exception=exception
-        )
-
-    def __str__(self):
-        return '{} '.format(
-            TestResult.__str__(self),
-        )
-
-
-class SuccessResult(TestResult):
-    status = 'success'
-
-    @classmethod
-    def from_current_frame(cls):
-        frame = inspect.currentframe()
-        while frame.f_code.co_filename == __file__:
-            frame = frame.f_back
-        code = frame.f_code
-        location = inspect.getmoduleinfo(code.co_filename).name
-        if code.co_name:
-            location = '.'.join((location, code.co_name))
-        source, first_line = inspect.getsourcelines(frame)
+    def get_source_lines(cls, obj, line):
         # Find all lines in the same block and trim indentation
-        index_lineno = frame.f_lineno - first_line
-        try:
-            index_line = source[index_lineno]
-        except IndexError:
-            return cls(
-                location=location,
-                lineno=frame.f_lineno,
-                source=''.join(source).rstrip(),
-                locals=None,
-            )
-            raise Exception(source, frame.f_lineno, first_line, len(source))
+        source, first_line = inspect.getsourcelines(obj)
+        index_lineno = line - first_line
+        index_line = source[index_lineno]
         indentation = re.match(r"^(\s*)", index_line).group(1)
         same_level = [i for i, line in enumerate(source)
                       if line.startswith(indentation)]
@@ -138,36 +108,197 @@ class SuccessResult(TestResult):
         while end in same_level:
             end += 1
         lines = [line[len(indentation):] for line in source[begin:end]]
-        return cls(
-            location=location,
-            lineno=frame.f_lineno,
-            source=''.join(lines).rstrip(),
-            locals=None,
-        )
+        return (index_line,
+                ''.join(lines).rstrip())
+
+
+class ResultStatus(Enum):
+    Success = 1
+    Failure = 2
+    Error = 4
+
+
+Success = ResultStatus.Success
+Failure = ResultStatus.Failure
+Error = ResultStatus.Error
+Unsuccessful = (Failure, Error)
+
+
+class TestResult(object):
+    def __init__(self, status, context, expected, actual):
+        self.file = os.path.relpath(context.file)
+        self.line = context.line
+        self.module = context.module
+        self.function = context.name
+        self.name = ('{}.{}'.format(context.module, context.name)
+                     if context.name else context.module)
+        self.source = context.source_block
+        self.source_block = context.source_block
+        self.source_line = context.source_line and context.source_line.strip()
+        self.expected = expected
+        self.actual = actual
+        self.status = status
 
     @classmethod
-    def from_callable(cls, function):
-        try:
-            code = function.__code__
-        except AttributeError:
+    def failed_assertion(cls, value, tb):
+        expected = None
+        info = Context.from_traceback(tb)
+        actual = "\n    ".join((
+            value.args[0] if value.args else '',
+            ", ".join("{}={!r}".format(key, value) for key, value
+                      in info.locals.items() if key in info.source_line),
+        ))
+        return cls(Failure, info, expected, actual)
+
+    @classmethod
+    def failed_to_raise(cls, exception):
+        return cls(Failure, Context.from_current_frame(), exception, None)
+
+    @classmethod
+    def error_from_exception(cls, exception):
+        info = Context.from_traceback(exception.__traceback__)
+        return cls(Error, info, None, format_exception(exception))
+
+    @classmethod
+    def success(cls, expected, function=None):
+        if function is None:
+            frame = inspect.currentframe()
+            while frame.f_code.co_filename == __file__:
+                frame = frame.f_back
+            return cls(Success, Context.from_frame(frame), expected, None)
+        else:
             try:
-                code = function.__call__.__code__
+                code = function.__code__
             except AttributeError:
-                code = function.__init__.__code__
-        return cls(
-            location=function.__name__,
-            lineno=code.co_firstlineno,
-            source=inspect.getsource(function),
-            locals={},
-        )
+                try:
+                    code = function.__call__.__code__
+                except AttributeError:
+                    code = function.__init__.__code__
+            return cls(Success, Context.from_code(code), expected, None)
 
 
-class ErrorResult(TestResult):
-    status = 'error'
+class TestAttempt(object):
+    def __init__(self, suite, exception=None, function=None):
+        self.suite = suite
+        self.exception = exception
+        self.name = suite.name
+        if suite.name is None and function is not None:
+            self.name = function.__name__
+        self.function = function
 
-    @classmethod
-    def from_exception(cls, exception):
-        return cls.from_traceback(exception.__traceback__, exception)
+    def __enter__(self):
+        self.suite.report_start(self.name)
+        return self
+
+    def __exit__(self, exc, error, tb):
+        if exc is self.exception:
+            # Expected exception (or lack thereof) was raised
+            result = TestResult.success(exc, self.function)
+        elif exc is AssertionError:
+            # Failed assertion
+            result = TestResult.failed_assertion(error, tb)
+        elif self.exception is not None:
+            # Failed to raise expected exception
+            result = TestResult.failed_to_raise(self.exception)
+        else:
+            # Unexpected error
+            result = TestResult.error_from_exception(error)
+        result.attempt = self
+        self.suite.report(result)
+        self.suite.report_finish(self.name)
+        return True
+
+
+class TestSuite(object):
+    def __init__(self, name=None):
+        self.name = name
+        self.results = []
+        self.parent = None
+
+    @property
+    def failures(self):
+        return (result for result in self.results if result.status == Failure)
+
+    @property
+    def successes(self):
+        return (result for result in self.results if result.status == Success)
+
+    @property
+    def errors(self):
+        return (result for result in self.results if result.status == Error)
+
+    def catch(self, exception=None):
+        return TestAttempt(self, exception=exception)
+
+    def get_child(self, name):
+        child = self.__class__()
+        child.parent = self
+        child.results = self.results
+        child.name = '{}:{}'.format(self.name, name) if self.name else name
+        return child
+
+    def test(self, function, args=(), kwargs={}, exception=None, name=None):
+        suite = self.get_child(name or function.__name__)
+        with TestAttempt(suite, exception, function) as attempt:
+            result = function(*args, **kwargs)
+            if hasattr(result, '__tests__'):
+                result.__tests__(self)
+        return attempt
+
+    def __iter__(self):
+        return iter(self.results)
+
+    def exit(self):
+        if any(self.errors):
+            exit(2)
+        if any(self.failures):
+            exit(1)
+        exit(0)
+
+    def report_start(self, name):
+        pass
+
+    def report_finish(self, name):
+        pass
+
+    def report_success(self, result):
+        pass
+
+    def report_failure(self, result):
+        pass
+
+    def report_error(self, result):
+        pass
+
+    def report(self, result):
+        self.results.append(result)
+        if result.status == ResultStatus.Success:
+            self.report_success(result)
+        elif result.status == ResultStatus.Failure:
+            self.report_failure(result)
+        elif result.status == ResultStatus.Error:
+            self.report_error(result)
+        else:
+            raise ValueError("Cannot report {0.status}".format(result))
+
+    def summary(self):
+        self.report_summary(dict(
+            attempts=len(self.results),
+            failures=len(list(self.failures)),
+            errors=len(list(self.errors)),
+            successes=len(list(self.successes)),
+        ))
+
+    def run_module_docstrings(self, module):
+        module = import_module(module)
+        finder = doctest.DocTestFinder(exclude_empty=False)
+        runner = DocstringRunner(self)
+        for test in finder.find(module, module.__name__):
+            runner.run(test)
+
+    def run_package_docstrings(self, package):
+        for module in find_package_module_names(package):
+            self.run_module_docstrings(module)
 
 
 class DocstringRunner(doctest.DocTestRunner):
@@ -175,72 +306,33 @@ class DocstringRunner(doctest.DocTestRunner):
         doctest.DocTestRunner.__init__(self)
         self.suite = suite
 
-    def _report(self, class_, test, example, **extra):
-        self.suite.report(class_(test.name, test.lineno + example.lineno + 1,
-                          example.source.strip(),
-                          {key: value for key, value in test.globs.items()
-                           if key in example.source},
-                          **extra))
+    def _report(self, status, test, example, got):
+        if isinstance(got, tuple):
+            got = format_exception(got[1])
+        self.suite.report(TestResult(status, Context(
+            file=test.filename,
+            module=test.name,
+            name=None,
+            line=test.lineno + example.lineno + 1,
+            source_block=example.source.strip(),
+        ), expected=example.want.rstrip(), actual=got.rstrip()))
 
     def report_success(self, out, test, example, got):
-        self._report(SuccessResult, test, example)
+        self._report(ResultStatus.Success, test, example, got)
 
     def report_failure(self, out, test, example, got):
-        self._report(FailureResult, test, example,
-                     trace="Expected: {}\nGot: {}".format(
-                         example.want.rstrip(), got.rstrip()))
+        self._report(ResultStatus.Failure, test, example, got)
 
     def report_unexpected_exception(self, out, test, example, got):
-        exc, obj, tb = got
-        self._report(ErrorResult, test, example, trace=format_exception(obj))
+        self._report(ResultStatus.Error, test, example, got)
 
 
-class TestAttempt(object):
-    def __init__(self, suite, exception=None, name=None, function=None):
-        self.suite = suite
-        self.exception = exception
-        self.name = name
-        if name is None and function is not None:
-            self.name = function.__name__
-        self.function = function
-
-    def __enter__(self):
-        if self.name:
-            self.suite.push_logger(self.name)
-        self.suite.report_start(self)
-
-    def __exit__(self, exc, error, tb):
-        if exc is AssertionError:
-            # Failed assertion
-            result = FailureResult.from_traceback(tb)
-        elif self.exception is None:
-            # Expected success
-            if exc is None:
-                if self.function is None:
-                    result = SuccessResult.from_current_frame()
-                else:
-                    result = SuccessResult.from_callable(self.function)
-            else:
-                result = ErrorResult.from_exception(error)
-        else:
-            # Expected exception
-            if exc is self.exception:
-                if self.function is None:
-                    result = SuccessResult.from_current_frame()
-                else:
-                    result = SuccessResult.from_callable(self.function)
-            else:
-                result = FailureResult.did_not_raise(self.exception)
-        self.suite.report(result)
-        if self.name:
-            self.suite.pop_logger()
-        return True
-
-
-class TestSuite(object):
+class LoggingTestSuite(TestSuite):
     def __init__(self, name=None):
+        TestSuite.__init__(self, name)
         self.loggers = [logging.getLogger(name)]
-        self.results = []
+        self.result_format = ""
+        self.summary_format = ""
 
     def push_logger(self, name):
         self.loggers.append(self.loggers[-1].getChild(name))
@@ -254,85 +346,26 @@ class TestSuite(object):
     def logger(self):
         return self.loggers[-1]
 
-    @property
-    def failures(self):
-        return (result for result in self.results
-                if isinstance(result, FailureResult))
-
-    @property
-    def successes(self):
-        return [result for result in self.results
-                if isinstance(result, SuccessResult)]
-
-    @property
-    def errors(self):
-        return [result for result in self.results
-                if isinstance(result, ErrorResult)]
-
-    def catch(self, exception=None, name=None):
-        return TestAttempt(self, exception=exception, name=name)
-
-    def test(self, function, args=(), kwargs={}, exception=None, name=None):
-        with TestAttempt(self, exception, name, function):
-            function(*args, **kwargs)
-
-    def __iter__(self):
-        return iter(self.results)
-
-    def exit(self):
-        if any(self.errors):
-            exit(2)
-        if any(self.failures):
-            exit(1)
-        exit(0)
-
     def report(self, result):
-        if isinstance(result, SuccessResult):
-            self.report_success(result)
-        elif isinstance(result, FailureResult):
-            self.report_failure(result)
-        elif isinstance(result, ErrorResult):
-            self.report_error(result)
-        else:
-            raise ValueError("Cannot report {!r}".format(result))
         self.logger.debug(result.source)
-        self.results.append(result)
+        super(LoggingTestSuite, self).report(result)
 
-    def report_start(self, attempt):
-        logging.debug("Expecting {}".format(
-            'success' if attempt.exception is None else
-            attempt.exception.__name__,
-        ))
+    def report_start(self, name):
+        if name:
+            self.push_logger(name)
 
     def report_success(self, result):
-        self.logger.info(str(result))
+        self.logger.info(self.result_format.format(**vars(result)))
 
     def report_failure(self, result):
-        self.logger.warning('{}\n{}\n{}'.format(
-            result,
-            result.source,
-            result.locals,
-        ))
+        self.logger.warning(self.result_format.format(**vars(result)))
 
     def report_error(self, result):
-        self.logger.error('{}\n{}'.format(result, result.trace or ''))
+        self.logger.error(self.result_format.format(**vars(result)))
 
-    def run_module_docstrings(self, module):
-        try:
-            module = import_module(module)
-            finder = doctest.DocTestFinder(exclude_empty=False)
-            runner = DocstringRunner(self)
-            for test in finder.find(module, module.__name__):
-                logger = self.logger.getChild(test.name).getChild('__doc__')
-                self.push_logger('{}.__doc__'.format(test.name))
-                try:
-                    runner.run(test)
-                finally:
-                    self.pop_logger()
-        except Exception as error:
-            self.report(ErrorResult.from_exception(error))
-            return
+    def report_summary(self, results):
+        self.logger.info(self.summary_format.format(**results))
 
-    def run_package_docstrings(self, package):
-        for module in find_package_module_names(package):
-            self.run_module_docstrings(module)
+    def report_finish(self, name):
+        if name:
+            self.pop_logger()
