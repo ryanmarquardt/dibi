@@ -9,7 +9,10 @@ class test_driver(object):
     def __init__(self, suite, driver, parameters):
         self.suite = suite
         self.db = dibi.DB(driver(**parameters))
+
+    def __tests__(self, suite):
         suite.test(self.create_table)
+        suite.test(self.create_table_string_pk)
         suite.test(self.list_tables)
         suite.test(self.list_columns)
         suite.test(self.insert_rows)
@@ -18,6 +21,7 @@ class test_driver(object):
         suite.test(self.select_equal_to_none)
         suite.test(self.update_selection)
         suite.test(self.delete_all)
+        suite.test(self.drop_tables)
 
     def create_table(self):
         table_1 = self.db.add_table('table 1')
@@ -27,10 +31,18 @@ class test_driver(object):
         table_1.add_column('binary_data', dibi.datatype.Blob)
         table_1.add_column('timestamp', dibi.datatype.DateTime)
         table_1.save()
+        assert 'table 1' in set(self.db.driver.list_tables())
+
+    def create_table_string_pk(self):
+        table_2 = self.db.add_table('table 2')
+        table_2.add_column('key', dibi.datatype.Text, primarykey=True)
+        table_2.add_column('value', dibi.datatype.Text)
+        table_2.save()
+        assert 'table 2' in set(self.db.driver.list_tables())
 
     def list_tables(self):
         tables = list(self.db.driver.list_tables())
-        assert tables == ['table 1']
+        assert tables == ['table 1', 'table 2']
 
     def list_columns(self):
         columns = list(self.db.driver.list_columns(self.db.tables['table 1']))
@@ -95,3 +107,9 @@ class test_driver(object):
         assert len(table_1.select_all()) > 0
         table_1.delete()
         assert len(table_1.select_all()) == 0
+
+    def drop_tables(self):
+        with self.suite.catch():
+            self.db.tables['table 1'].drop()
+        with self.suite.catch():
+            self.db.tables['table 2'].drop()
