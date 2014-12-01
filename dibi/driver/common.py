@@ -393,13 +393,13 @@ class DbapiDriver(Driver):
 
     class operators:
 
-        ## Logical operators
+        # Logical operators
 
         AND = operator("({} AND {})")
         OR = operator("({} OR {})")
         NOT = operator("(NOT {})")
 
-        ## Numerical comparisons
+        # Numerical comparisons
 
         def EQUAL(a, b):
             """

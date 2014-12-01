@@ -46,21 +46,21 @@ def test_drivers(suite):
 
 class DoctestFormatSuite(TestSuite):
     def report_summary(self, results):
-        print('*'*70)
+        print('*' * 70)
         print("""Results from {attempts} attempted test cases:
 {failures} failures
 {errors} errors
 {successes} successes""".format(**results))
 
     def report_failure(self, result):
-        print('*'*70)
+        print('*' * 70)
         print('Result in', result.attempt.name)
         print('File "{file}", line {line}, in {name}'.format(
             **vars(result)))
         print('Failed:'.format(status=result.status))
-        if result.source_line.startswith('assert'):
+        if result.source_line and result.source_line.startswith('assert'):
             print('   ', result.source_line)
-        else:
+        elif result.source:
             for line in result.source.split('\n'):
                 print('   ', line)
         if result.expected is not None:
@@ -68,13 +68,13 @@ class DoctestFormatSuite(TestSuite):
         print('Got:\n   ', result.actual)
 
     def report_error(self, result):
-        print('*'*70)
+        print('*' * 70)
         print('File "{file}", line {line}, in {name}'.format(
             **vars(result)))
         print('Unexpected Error:'.format(status=result.status))
-        if result.source_line.startswith('assert'):
+        if result.source_line and result.source_line.startswith('assert'):
             print('   ', result.source_line)
-        else:
+        elif result.source:
             for line in result.source.split('\n'):
                 print('   ', line)
         if result.expected is not None:

@@ -75,14 +75,6 @@ class MysqlDriver(DbapiDriver):
                     str(error).partition("Table '")[2][:-16])
             elif error.errno == 1054:
                 raise Exception(error.args[1])
-        #elif isinstance(e, MySQLdb.IntegrityError):
-            #code = e.args[0]
-            #if code == 1062:
-                #raise ValueError(e.message)
-        #elif isinstance(e, MySQLdb.ProgrammingError):
-            #text = e.args[1].partition("'")[2].rpartition("'")[0]
-            #offset = self.lastsql.index(text)
-            #raise SQLSyntaxError(self.lastsql, offset, text)
 
     def unmap_type(self, t):
         name, _, size = t.partition('(')
@@ -106,7 +98,6 @@ class MysqlDriver(DbapiDriver):
     def create_table(self, table, columns, force_create):
         return self.execute(
             C("CREATE"),
-            #C("TEMPORARY") if self.debug else None,
             C("TABLE"),
             C("IF NOT EXISTS") if force_create else None,
             self.identifier(table.name),
