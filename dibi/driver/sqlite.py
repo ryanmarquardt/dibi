@@ -3,7 +3,7 @@
 import dibi
 from ..driver.common import (DbapiDriver, C, register, NoSuchTableError,
                              operator)
-from ..error import (NoSuchTableError, NoSuchDatabaseError)
+from ..error import (NoSuchTableError, NoSuchDatabaseError, TableAlreadyExists)
 from ..datatype import Text, Integer, Float, Blob, DateTime
 
 import sqlite3
@@ -49,6 +49,9 @@ class SQLiteDriver(DbapiDriver):
                 raise SyntaxError((message, self.last_statement))
             elif message == 'unable to open database file':
                 raise NoSuchDatabaseError(self.path)
+            elif (message.startswith('table "') and
+                  message.endswith('" already exists')):
+                raise TableAlreadyExists(message[7:-16])
         if isinstance(error, sqlite3.Error):
             raise Exception((error, self.last_statement))
 
