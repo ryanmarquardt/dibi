@@ -15,6 +15,10 @@ class NoSuchTableError(NameError, Error):
         self.name = table_name
 
 
+class TableAlreadyExists(Error):
+    pass
+
+
 class NoColumnsError(ValueError, Error):
     pass
 

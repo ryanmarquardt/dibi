@@ -2,7 +2,7 @@
 from .common import DbapiDriver, C, register, operator
 
 from ..error import (NoSuchTableError, ConnectionError, AuthenticationError,
-                     NoSuchDatabaseError)
+                     NoSuchDatabaseError, TableAlreadyExists)
 
 import datetime
 
@@ -70,8 +70,11 @@ class MysqlDriver(DbapiDriver):
                 raise AuthenticationError(self.user)
             elif error.errno == 1049:
                 raise NoSuchDatabaseError(self.database)
-            #elif code == 1054:
-                #raise KeyError(e.args[1])
+            elif error.errno == 1050:
+                raise TableAlreadyExists(
+                    str(error).partition("Table '")[2][:-16])
+            elif error.errno == 1054:
+                raise Exception(error.args[1])
         #elif isinstance(e, MySQLdb.IntegrityError):
             #code = e.args[0]
             #if code == 1062:
@@ -103,7 +106,7 @@ class MysqlDriver(DbapiDriver):
     def create_table(self, table, columns, force_create):
         return self.execute(
             C("CREATE"),
-            C("TEMPORARY") if self.debug else None,
+            #C("TEMPORARY") if self.debug else None,
             C("TABLE"),
             C("IF NOT EXISTS") if force_create else None,
             self.identifier(table.name),
