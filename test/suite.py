@@ -93,6 +93,22 @@ class Context(object):
         return self
 
     @classmethod
+    def from_callable(cls, class_or_func):
+        name = None
+        try:
+            code = class_or_func.__code__
+        except AttributeError:
+            name = class_or_func.__name__
+            try:
+                code = class_or_func.__call__.__code__
+            except AttributeError:
+                code = class_or_func.__init__.__code__
+        self = cls.from_code(code)
+        if name:
+            self.name = name
+        return self
+
+    @classmethod
     def get_source_lines(cls, obj, line):
         # Find all lines in the same block and trim indentation
         source, first_line = inspect.getsourcelines(obj)
@@ -171,14 +187,8 @@ class TestResult(object):
         if function is None:
             return cls.trace_current_frame(Success, expected, None)
         else:
-            try:
-                code = function.__code__
-            except AttributeError:
-                try:
-                    code = function.__call__.__code__
-                except AttributeError:
-                    code = function.__init__.__code__
-            return cls(Success, Context.from_code(code), expected, None)
+            return cls(Success, Context.from_callable(function),
+                       expected, None)
 
 
 class TestAttempt(object):
@@ -296,9 +306,17 @@ class TestSuite(object):
     def run_module_docstrings(self, module):
         module = import_module(module)
         finder = doctest.DocTestFinder(exclude_empty=False)
-        runner = DocstringRunner(self)
         for test in finder.find(module, module.__name__):
+            runner = DocstringRunner(self)
             runner.run(test)
+            for status, test, example, got in runner.results:
+                self.report(TestResult(status, Context(
+                    file=test.filename,
+                    module=test.name,
+                    name='__doc__',
+                    line=test.lineno + example.lineno + 1,
+                    source_block=example.source.strip(),
+                ), expected=example.want.rstrip(), actual=got.rstrip()))
 
     def run_package_docstrings(self, package):
         for module in find_package_module_names(package):
@@ -308,27 +326,16 @@ class TestSuite(object):
 class DocstringRunner(doctest.DocTestRunner):
     def __init__(self, suite):
         doctest.DocTestRunner.__init__(self)
-        self.suite = suite
-
-    def _report(self, status, test, example, got):
-        if isinstance(got, tuple):
-            got = format_exception(got[1])
-        self.suite.report(TestResult(status, Context(
-            file=test.filename,
-            module=test.name,
-            name=None,
-            line=test.lineno + example.lineno + 1,
-            source_block=example.source.strip(),
-        ), expected=example.want.rstrip(), actual=got.rstrip()))
+        self.results = []
 
     def report_success(self, out, test, example, got):
-        self._report(ResultStatus.Success, test, example, got)
+        self.results.append((Success, test, example, got))
 
     def report_failure(self, out, test, example, got):
-        self._report(ResultStatus.Failure, test, example, got)
+        self.results.append((Failure, test, example, got))
 
     def report_unexpected_exception(self, out, test, example, got):
-        self._report(ResultStatus.Error, test, example, got)
+        self.results.append((Error, test, example, got))
 
 
 class LoggingTestSuite(TestSuite):
