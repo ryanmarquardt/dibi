@@ -336,14 +336,6 @@ class DbapiDriver(Driver):
             self.identifier(table.name)
         )
 
-    @abstractmethod
-    def list_tables(self):
-        return
-
-    @abstractmethod
-    def list_columns(self, table):
-        yield
-
     # Row methods
 
     def insert(self, table, values):
