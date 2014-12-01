@@ -59,7 +59,7 @@ class MysqlDriver(DbapiDriver):
             TEXT=C("VARCHAR({})").format(C(int(database_size))),
             BLOB=C("BLOB"),
             DATETIME=C("DATETIME"),
-        )
+        )[database_type]
 
     def handle_exception(self, error):
         if isinstance(error, mysql.errors.InterfaceError):

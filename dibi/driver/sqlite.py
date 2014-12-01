@@ -59,7 +59,7 @@ class SQLiteDriver(DbapiDriver):
             TEXT=C("TEXT"),
             BLOB=C("BLOB"),
             DATETIME=C("TIMESTAMP"),
-        )
+        )[database_type]
 
     def unmap_type(self, database_type):
         return dict(
