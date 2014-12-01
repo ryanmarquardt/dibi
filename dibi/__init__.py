@@ -267,9 +267,12 @@ class Table(Selectable):
 
     def add_column(self, name, datatype=DataType, primarykey=False,
                    autoincrement=False):
-        return self.columns.add(
+        column = self.columns.add(
             Column(self.db, self, name, datatype, primarykey, autoincrement),
             replace=False)
+        if primarykey:
+            self.primarykey = column
+        return column
 
     def save(self, force_create=False):
         if not self.columns:
