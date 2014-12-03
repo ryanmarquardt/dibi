@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import dibi
+from ..common import Column
 from ..driver.common import (DbapiDriver, C, register, NoSuchTableError,
                              operator)
 from ..error import (NoSuchTableError, NoSuchDatabaseError, TableAlreadyExists)
@@ -101,7 +101,7 @@ class SQLiteDriver(DbapiDriver):
         # name, data type, can be NULL, default, pk (0 or index)
         for cid, name, type, notnull, default, pk in rows:
             datatype = self.unmap_type(type)
-            yield dibi.Column(
+            yield Column(
                 None, None, name, datatype, primarykey=(pk > 0),
                 autoincrement=False,  # TODO: Detect rowid fields
             )

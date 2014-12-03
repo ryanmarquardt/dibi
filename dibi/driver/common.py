@@ -1,12 +1,11 @@
 #!/usr/bin/env python
 
+from ..common import Column, Filter
+from ..error import NoSuchTableError
+
 from abc import ABCMeta, abstractmethod
 from contextlib import contextmanager
 import logging
-
-import dibi
-
-from dibi import NoSuchTableError
 
 
 class CleanSQL(str):
@@ -295,10 +294,10 @@ class DbapiDriver(Driver):
         raise TypeError("Can't convert {!r} to literal".format(value))
 
     def expression(self, value):
-        if isinstance(value, dibi.Column):
+        if isinstance(value, Column):
             return C("{}.{}").format(self.identifier(value.table.name),
                                      self.identifier(value.name))
-        elif isinstance(value, dibi.Filter):
+        elif isinstance(value, Filter):
             operator = getattr(self.operators, value.operator)
             return operator(*(self.expression(arg) for arg in value.arguments))
         else:

@@ -1,12 +1,10 @@
 
-from .common import DbapiDriver, C, register, operator
 
+from .common import DbapiDriver, C, register, operator
+from ..common import Column
 from ..error import (NoSuchTableError, ConnectionError, AuthenticationError,
                      NoSuchDatabaseError, TableAlreadyExists)
-
-import dibi
-
-import datetime
+from ..datatype import Text, Integer, Float, Blob, DateTime
 
 import mysql.connector as mysql
 
@@ -83,14 +81,14 @@ class MysqlDriver(DbapiDriver):
         if size:
             size = size[:-1]
         return dict(
-            int=dibi.datatype.Integer,
-            tinyint=dibi.datatype.Integer,
-            text=dibi.datatype.Text,
-            varchar=dibi.datatype.Text,
-            timestamp=dibi.datatype.DateTime,
-            double=dibi.datatype.Float,
-            real=dibi.datatype.Float,
-            blob=dibi.datatype.Blob,
+            int=Integer,
+            tinyint=Integer,
+            text=Text,
+            varchar=Text,
+            timestamp=DateTime,
+            double=Float,
+            real=Float,
+            blob=Blob,
         )[name]
 
     def list_tables(self):
@@ -102,7 +100,7 @@ class MysqlDriver(DbapiDriver):
             datatype = self.unmap_type(type)
             if datatype is None:
                 raise Exception('Unknown column type %s' % v_type)
-            yield dibi.Column(
+            yield Column(
                 None, None, name, datatype, primarykey=(key == 'PRI'),
                 autoincrement=(extra == 'auto_increment'),
             )
