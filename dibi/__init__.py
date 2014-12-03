@@ -243,6 +243,8 @@ class Column(Filter):
         return str(self)
 
     def __str__(self):
+        if self.table is None:
+            return repr(self.name)
         return "{!r}.{!r}".format(self.table.name, self.name)
 
 
@@ -362,7 +364,12 @@ class DB(object):
         NoSuchTableError: Table 'missing' does not exist
         """
         columns = self.driver.list_columns(name)
-        return list(columns)
+        table = Table(self, name)
+        for column in columns:
+            column.table = table
+            column.db = self
+            table.columns.add(column)
+        return table
 
     def __repr__(self):
         return "<DB({!r})>".format(self.driver)
