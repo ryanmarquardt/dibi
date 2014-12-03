@@ -22,7 +22,6 @@ class test_driver(object):
             pass
         suite.test(self.create_table_already_exists)
         suite.test(self.list_tables)
-        suite.test(self.list_columns)
         suite.test(self.discover_forgotten_table)
         try:
             self.db.tables['forgotten'].drop()
@@ -72,11 +71,6 @@ class test_driver(object):
     def list_tables(self):
         tables = list(self.db.driver.list_tables())
         assert tables == ['table 1', 'table 2']
-
-    def list_columns(self):
-        columns = list(self.db.driver.list_columns('table 1'))
-        assert len(columns) == 5 + 1  # Implicit __id__ column is included
-        # TODO: Further assertions about the nature of the returned columns
 
     def discover_forgotten_table(self):
         forgotten = self.db.add_table('forgotten')
