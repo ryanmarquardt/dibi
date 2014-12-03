@@ -44,6 +44,10 @@ def test_drivers(suite):
                    driver, parameters, expect)
 
 
+def indented(text, indent=' ' * 4):
+    return '\n'.join('{}{}'.format(indent, line) for line in text.split('\n'))
+
+
 class DoctestFormatSuite(TestSuite):
     def report_summary(self, results):
         print('*' * 70)
@@ -54,18 +58,18 @@ class DoctestFormatSuite(TestSuite):
 
     def report_failure(self, result):
         print('*' * 70)
-        print('Result in', result.attempt.name)
         print('File "{file}", line {line}, in {name}'.format(
             **vars(result)))
         print('Failed:'.format(status=result.status))
         if result.source_line and result.source_line.startswith('assert'):
             print('   ', result.source_line)
         elif result.source:
-            for line in result.source.split('\n'):
-                print('   ', line)
+            print(indented(result.source))
         if result.expected is not None:
-            print('Expected:\n   ', result.expected)
-        print('Got:\n   ', result.actual)
+            print('Expected:')
+            print(indented(result.expected))
+        print('Got:')
+        print(indented(result.actual))
 
     def report_error(self, result):
         print('*' * 70)
@@ -96,7 +100,8 @@ if __name__ == '__main__':
             test_driver, (suite, driver, parameters),
             exception=expect, name=name)
 
-    suite.run_package_docstrings(dibi)
+    suite.run_package_docstrings(
+        dibi, optionflags=doctest.IGNORE_EXCEPTION_DETAIL)
 
     suite.summary()
 

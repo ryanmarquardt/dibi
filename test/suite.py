@@ -303,11 +303,11 @@ class TestSuite(object):
             successes=len(list(self.successes)),
         ))
 
-    def run_module_docstrings(self, module):
+    def run_module_docstrings(self, module, **options):
         module = import_module(module)
         finder = doctest.DocTestFinder(exclude_empty=False)
         for test in finder.find(module, module.__name__):
-            runner = DocstringRunner(self)
+            runner = DocstringRunner(self, **options)
             runner.run(test)
             for status, test, example, got in runner.results:
                 self.report(TestResult(status, Context(
@@ -318,14 +318,14 @@ class TestSuite(object):
                     source_block=example.source.strip(),
                 ), expected=example.want.rstrip(), actual=got.rstrip()))
 
-    def run_package_docstrings(self, package):
+    def run_package_docstrings(self, package, **options):
         for module in find_package_module_names(package):
-            self.run_module_docstrings(module)
+            self.run_module_docstrings(module, **options)
 
 
 class DocstringRunner(doctest.DocTestRunner):
-    def __init__(self, suite):
-        doctest.DocTestRunner.__init__(self)
+    def __init__(self, suite, **options):
+        doctest.DocTestRunner.__init__(self, **options)
         self.results = []
 
     def report_success(self, out, test, example, got):
