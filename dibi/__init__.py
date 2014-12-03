@@ -352,6 +352,18 @@ class DB(object):
             raise TableAlreadyExists(name)
         return self.tables.add(Table(self, name, primarykey=primarykey))
 
+    def find_table(self, name):
+        """
+        Attemt to discover a table which exists, but dibi doesn't know about
+
+        >>> DB.connect('sqlite').find_table('missing')
+        Traceback (most recent call last):
+         ...
+        NoSuchTableError: Table 'missing' does not exist
+        """
+        columns = self.driver.list_columns(name)
+        return list(columns)
+
     def __repr__(self):
         return "<DB({!r})>".format(self.driver)
 
