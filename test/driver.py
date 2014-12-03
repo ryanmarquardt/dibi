@@ -23,6 +23,11 @@ class test_driver(object):
         suite.test(self.create_table_already_exists)
         suite.test(self.list_tables)
         suite.test(self.list_columns)
+        suite.test(self.discover_forgotten_table)
+        try:
+            self.db.tables['forgotten'].drop()
+        except KeyError:
+            pass
         suite.test(self.insert_rows)
         suite.test(self.select_row_by_id)
         suite.test(self.select_equal_to_string)
@@ -72,6 +77,21 @@ class test_driver(object):
         columns = list(self.db.driver.list_columns('table 1'))
         assert len(columns) == 5 + 1  # Implicit __id__ column is included
         # TODO: Further assertions about the nature of the returned columns
+
+    def discover_forgotten_table(self):
+        forgotten = self.db.add_table('forgotten')
+        forgotten.add_column('name', dibi.datatype.Text, primarykey=True)
+        forgotten.save()
+        with self.suite.catch():
+            del self.db.tables['forgotten']
+            discovered = self.db.find_table('forgotten')
+            columns = discovered.columns
+            names = list(columns.keys())
+            assert names == ['name']
+            column = columns['name']
+            datatype = column.datatype
+            assert issubclass(datatype, dibi.datatype.Text)
+        forgotten.drop()
 
     def insert_rows(self):
         sample_1_id = self.db.tables['table 1'].insert(
