@@ -62,7 +62,7 @@ class DoctestFormatSuite(TestSuite):
             **vars(result)))
         print('Failed:'.format(status=result.status))
         if result.source_line and result.source_line.startswith('assert'):
-            print('   ', result.source_line)
+            print(indented(result.source_line))
         elif result.source:
             print(indented(result.source))
         if result.expected is not None:
@@ -77,13 +77,14 @@ class DoctestFormatSuite(TestSuite):
             **vars(result)))
         print('Unexpected Error:'.format(status=result.status))
         if result.source_line and result.source_line.startswith('assert'):
-            print('   ', result.source_line)
+            print(indented(result.source_line))
         elif result.source:
-            for line in result.source.split('\n'):
-                print('   ', line)
+            print(indented(result.source))
         if result.expected is not None:
-            print('Expected:\n   ', result.expected)
-        print('Got:\n   ', result.actual)
+            print('Expected:')
+            print(indented(result.expected))
+        print('Got:')
+        print(indented(result.actual))
 
 
 if __name__ == '__main__':

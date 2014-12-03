@@ -310,13 +310,17 @@ class TestSuite(object):
             runner = DocstringRunner(self, **options)
             runner.run(test)
             for status, test, example, got in runner.results:
+                if isinstance(got, tuple):
+                    got = format_exception(got[1])
+                else:
+                    got = got.rstrip()
                 self.report(TestResult(status, Context(
                     file=test.filename,
                     module=test.name,
                     name='__doc__',
                     line=test.lineno + example.lineno + 1,
                     source_block=example.source.strip(),
-                ), expected=example.want.rstrip(), actual=got.rstrip()))
+                ), expected=example.want.rstrip(), actual=got))
 
     def run_package_docstrings(self, package, **options):
         for module in find_package_module_names(package):
