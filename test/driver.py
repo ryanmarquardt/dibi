@@ -85,6 +85,8 @@ class test_driver(object):
             column = columns['name']
             datatype = column.datatype
             assert issubclass(datatype, dibi.datatype.Text)
+            primarykey = column.primarykey
+            assert primarykey is True
         forgotten.drop()
 
     def insert_rows(self):
