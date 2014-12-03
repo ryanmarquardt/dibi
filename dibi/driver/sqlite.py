@@ -68,10 +68,11 @@ class SQLiteDriver(DbapiDriver):
         return dict(
             TEXT=Text,
             INTEGER=Integer,
+            INT=Integer,
             REAL=Float,
             BLOB=Blob,
             TIMESTAMP=DateTime,
-        )
+        )[database_type]
 
     def column_definition(self, column):
         if column.autoincrement:
@@ -97,11 +98,11 @@ class SQLiteDriver(DbapiDriver):
         # An empty result set indicates the table doesn't exist
         if not rows:
             raise NoSuchTableError(table)
-        for _, name, v_type, notnull, default, _ in rows:
+        # name, data type, can be NULL, default, pk (0 or index)
+        for cid, name, type, notnull, default, pk in rows:
+            datatype = self.unmap_type(type)
             yield dibi.Column(
-                None, None, name,
-                self.unmap_type(v_type),
-                False,
+                None, None, name, datatype, primarykey=(pk > 0),
                 autoincrement=False,  # TODO: Detect rowid fields
             )
 

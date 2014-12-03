@@ -4,6 +4,8 @@ from .common import DbapiDriver, C, register, operator
 from ..error import (NoSuchTableError, ConnectionError, AuthenticationError,
                      NoSuchDatabaseError, TableAlreadyExists)
 
+import dibi
+
 import datetime
 
 import mysql.connector as mysql
@@ -78,22 +80,32 @@ class MysqlDriver(DbapiDriver):
 
     def unmap_type(self, t):
         name, _, size = t.partition('(')
-        if name in ('int', 'tinyint'):
-            return int if int((size or '0 ')[:-1]) > 1 else bool
-        return {'text': str, 'varchar': str,
-                'timestamp': datetime.datetime, 'double': float, 'real': float,
-                'blob': bytes}.get(name)
+        if size:
+            size = size[:-1]
+        return dict(
+            int=dibi.datatype.Integer,
+            tinyint=dibi.datatype.Integer,
+            text=dibi.datatype.Text,
+            varchar=dibi.datatype.Text,
+            timestamp=dibi.datatype.DateTime,
+            double=dibi.datatype.Float,
+            real=dibi.datatype.Float,
+            blob=dibi.datatype.Blob,
+        )[name]
 
     def list_tables(self):
         return (table for (table,) in self.execute_ro(C("SHOW TABLES")))
 
     def list_columns(self, table):
-        for name, v_type, null, key, default, extra in self.execute_ro(
-                C("DESCRIBE"), self.identifier(table)):
-            ut = self.unmap_type(v_type)
-            if not ut:
+        for name, type, null, key, default, extra in self.execute_ro(
+                C("SHOW COLUMNS FROM"), self.identifier(table)):
+            datatype = self.unmap_type(type)
+            if datatype is None:
                 raise Exception('Unknown column type %s' % v_type)
-            yield (str(name), ut, null != 'YES', default)
+            yield dibi.Column(
+                None, None, name, datatype, primarykey=(key == 'PRI'),
+                autoincrement=(extra == 'auto_increment'),
+            )
 
     def create_table(self, table, columns, force_create):
         return self.execute(
