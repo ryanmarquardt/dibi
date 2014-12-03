@@ -69,7 +69,7 @@ class test_driver(object):
         assert tables == ['table 1', 'table 2']
 
     def list_columns(self):
-        columns = list(self.db.driver.list_columns(self.db.tables['table 1']))
+        columns = list(self.db.driver.list_columns('table 1'))
         assert len(columns) == 5 + 1  # Implicit __id__ column is included
         # TODO: Further assertions about the nature of the returned columns
 

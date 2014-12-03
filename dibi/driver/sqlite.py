@@ -92,11 +92,14 @@ class SQLiteDriver(DbapiDriver):
             C("SELECT name FROM sqlite_master WHERE type='table'")))
 
     def list_columns(self, table):
-        cursor = self.execute_ro(C("PRAGMA table_info({})").format(
-            self.identifier(table.name)))
-        for _, name, v_type, notnull, default, _ in cursor:
+        rows = self.execute_ro(C("PRAGMA table_info({})").format(
+            self.identifier(table))).fetchall()
+        # An empty result set indicates the table doesn't exist
+        if not rows:
+            raise NoSuchTableError(table)
+        for _, name, v_type, notnull, default, _ in rows:
             yield dibi.Column(
-                None, table, name,
+                None, None, name,
                 self.unmap_type(v_type),
                 False,
                 autoincrement=False,  # TODO: Detect rowid fields
