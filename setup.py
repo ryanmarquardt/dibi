@@ -13,6 +13,7 @@ setup(
         'dibi',
         'dibi.driver',
         'dibi.datatype',
+        'test',
     ],
     license='Simplified BSD License',
 )

@@ -8,7 +8,7 @@ NAME=$(shell $(SETUP) --name)
 
 SRCFILES=$(shell find $(NAME) -name '*.py')
 
-TESTPYTHON=PYTHONPATH=$(PWD)/build/lib $(PYTHON)
+TESTPYTHON=cd $(PWD)/build/lib; $(PYTHON)
 
 .PHONY: test all sdist
 
@@ -19,6 +19,7 @@ test: build
 	$(TESTPYTHON) -m test
 
 build: $(SRCFILES)
+	@rm -r build || true
 	@$(SETUP) build
 	@touch build
 
