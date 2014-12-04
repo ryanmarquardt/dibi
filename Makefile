@@ -6,7 +6,7 @@ VERSION=$(shell $(SETUP) --version)
 FULLNAME=$(shell $(SETUP) --fullname)
 NAME=$(shell $(SETUP) --name)
 
-SRCFILES=$(shell find $(NAME) -name '*.py')
+SRCFILES=$(shell find $(NAME) test -name '*.py' -o -name 'test_parameters.conf')
 
 TESTPYTHON=cd $(PWD)/build/lib; $(PYTHON)
 
@@ -16,6 +16,7 @@ all: build
 
 test: build
 	find -path ./build -prune -o -name '*.py' -exec pep8 --show-source '{}' \;
+	@cp test_parameters.conf build/lib || true
 	$(TESTPYTHON) -m test
 
 build: $(SRCFILES)

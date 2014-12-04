@@ -15,5 +15,6 @@ setup(
         'dibi.datatype',
         'test',
     ],
+    package_data={'test': ['test_parameters.conf']},
     license='Simplified BSD License',
 )
