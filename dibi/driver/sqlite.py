@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 
 from ..common import Column
-from ..driver.common import (DbapiDriver, C, register, NoSuchTableError,
-                             operator)
+from .common import DbapiDriver, C, register, NoSuchTableError, operator
 from ..error import (NoSuchTableError, NoSuchDatabaseError, TableAlreadyExists)
 from ..datatype import Text, Integer, Float, Blob, DateTime
 
