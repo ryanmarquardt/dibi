@@ -255,21 +255,61 @@ class DbapiDriver(Driver):
                 else:
                     self.rollback()
 
+    @classmethod
+    def construct_statement(cls, *words):
+        """
+        Build a SQL statement from the provided list of strings.
+
+        Any non-true parameter is omitted. All other parameters must be
+        instances of CleanSQL.
+
+        >>> DbapiDriver.construct_statement(
+        ...   C("DELETE FROM"), C("table")
+        ... )
+        'DELETE FROM table;'
+
+        The paradigm "word if condition else None" can conditionally drop
+        terms.
+
+        >>> def create_table(temporary):
+        ...   table = 'a'
+        ...   return DbapiDriver.construct_statement(
+        ...     C("CREATE"), C("TEMPORARY") if temporary else None,
+        ...     C("TABLE"), C(table), C("(x INT)"),
+        ...   )
+
+        >>> create_table(False)
+        'CREATE TABLE a (x INT);'
+
+        >>> create_table(True)
+        'CREATE TEMPORARY TABLE a (x INT);'
+        """
+        return str(C('{};').join_format(
+            C(' '), (word for word in words if word)))
+
     def execute(self, *words, **kwargs):
+        """
+        Execute a SQL statement.
+
+        If errors are not encountered, changes will be committed. If they are
+        the action will be rolled back.
+        """
         with self.transaction():
             return self.execute_ro(*words, **kwargs)
 
     def execute_ro(self, *words, **kwargs):
+        """
+        Execute a SQL statement without initiating a transaction.
+        """
         values = kwargs.pop('values', ())
         if kwargs:
-            raise TypeError("DB.execute() got an unexpected keyword argument "
+            raise TypeError("execute_ro() got an unexpected keyword argument "
                             "'{}'".format(kwargs.popitem()[0]))
-        self.last_statement = statement = \
-            str(C('{};').join_format(C(' '), (word for word in words if word)))
+        self.last_statement = self.construct_statement(*words)
         self.last_values = values
         cursor = self.connection.cursor()
         try:
-            cursor.execute(statement, values)
+            cursor.execute(self.last_statement, self.last_values)
         except Exception:
             raise
         return cursor
